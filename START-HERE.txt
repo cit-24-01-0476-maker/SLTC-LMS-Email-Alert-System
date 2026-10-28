@@ -30,7 +30,8 @@ Commands (Node.js installed නම්; npm install අවශ්‍ය නැහ�
 
 Private LMS authtoken, subscriber list හෝ signing key source files වලට,
 preview එකට, public repository එකකට දාන්න එපා. Secret configuration එක
-Google Script Properties තුළ තබන්න. Live Google deployment තවම කර නැහැ.
+Google Script Properties තුළ තබන්න. Live Google deployment සහ monitor setup දැන් සම්පූර්ණයි.
+Live signup: https://script.google.com/macros/s/AKfycbyZaJHwT6kUOyJO0_e7n5_UDY5yw85-0HlzoO7duriqKBAbkc3HMRQCOmqhOHnPIN0h/exec
 
 Shared monitor එකේ course events පමණයි alerts ලෙස ලැබෙන්නේ.
 එක් එක් studentගේ personalised LMS courses මෙයින් fetch කරන්නේ නැහැ.

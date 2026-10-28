@@ -306,7 +306,9 @@ styled mail, unsubscribe deletion/recheck, leak guards, retry, daily mail cap,
 CAPTCHA partial-config fail-closed and private RPC surface. These do NOT
 verify real Google authorization, HTMLService rendering, Cloudflare iframe
 compatibility, Sheet permissions, original script integration or deliverability.
-No live deployment or live LMS/email calls were made to your accounts.
+Production Apps Script signup + private monitor දැන් deploy/configure කරලා
+තියෙනවා. Public signup page HTTP 200 සහ secret exposure checks pass.
+Actual student email confirmation/alert delivery තවම live-test කර නැහැ.
 
 11. Official documentation used
 

@@ -2,7 +2,7 @@
 
 Voluntary university email signup for a shared SLTC LMS calendar monitor, using Google Apps Script HTMLService and a private Google Sheet.
 
-**This repository is source code. It is not a live signup service yet.** The root `index.html` is a local demonstration that never sends or saves email. Deploy the files in `signup/` to Google Apps Script to activate email verification.
+**Live signup:** [Open SLTC LMS Alerts](https://script.google.com/macros/s/AKfycbyZaJHwT6kUOyJO0_e7n5_UDY5yw85-0HlzoO7duriqKBAbkc3HMRQCOmqhOHnPIN0h/exec). The production app is deployed on Google Apps Script and connected to the private monitor. The root `index.html` remains a local demonstration that never sends or saves email.
 
 ## මේක පටන් ගන්නේ කොහොමද?
 
@@ -53,7 +53,7 @@ npm test
 npm run build
 ```
 
-Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 41 checks, including the integrated original monitor and an exact original-renderer output regression check. Real Google deployment, mail delivery and optional Turnstile iframe compatibility need the acceptance tests in the deployment guide.
+Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 41 checks, including the integrated original monitor and an exact original-renderer output regression check. The production signup page was verified accessible without login (HTTP 200), and both setup steps completed. A real student-mailbox confirmation/alert delivery test and optional Turnstile iframe compatibility still require the acceptance tests in the deployment guide.
 
 ## Deployment and security
 
@@ -62,3 +62,5 @@ Host the production signup app on **Google Apps Script**, with subscribers in a 
 Keep the public signup project separate from the private LMS monitor. Store the LMS calendar token only in the monitor's Script Properties. Store signing/CAPTCHA secrets in Script Properties, never in this repository or preview. Do not commit real subscriber data, private calendar URLs, `.env`, or Google login credentials.
 
 Email sending is subject to the sender account's [Google Apps Script quotas](https://developers.google.com/apps-script/guides/services/quotas). This is not an unlimited email service. Follow the deployment guide before sharing a live signup URL.
+
+The completed production bootstrap helpers were removed. Signing keys are held in Script Properties, not in the deployed source or repository. The monitor has no public web endpoint.
