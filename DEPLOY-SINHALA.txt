@@ -1,0 +1,358 @@
+SLTC LMS ALERTS — DEPLOY GUIDE
+සකස් කළ දිනය: 2026-10-28 | English UI + ලේසි සිංහල උපදෙස්
+
+01. මේ package එකෙන් ලැබෙන්නේ මොකක්ද?
+
+Student කෙනෙක් website එකට ඇවිත් @sltc.ac.lk email එක දාලා consent
+checkbox එක tick කරනවා. Email එකට එන link එක ඇරලා “Confirm subscription”
+ඔබන තුරු alerts activate වෙන්නේ නැහැ. Confirm වුණාට පස්සේ Google Sheet
+එකෙන් existing monitor එක subscribers කියවන නිසා අලුත් student කෙනෙක්
+එකතු වෙන හැම වෙලාවෙම script settings edit කරන්න ඕන නැහැ.
+
+මෙය shared monitor එකෙන් පේන courses/events පමණක් broadcast කරනවා.
+Student email එක දුන්නා කියලා ඒ studentගේ personalised LMS courses
+ලබාගන්නේ නැහැ. Email domain check එකෙන් student status තහවුරු වෙන්නෙත්
+නැහැ; confirmation එකෙන් තහවුරු වෙන්නේ mailbox access එක පමණයි.
+Shared course notices අනෙක් අයට බෙදාදීමට අවසර තියෙනවාද organiser බලන්න.
+
+Architecture:
+  Student -> PUBLIC Signup Apps Script (HTMLService)
+          -> private Google Sheet: Subscribers (pending -> confirmed)
+  Existing PRIVATE LMS monitor -> same Sheet: AlertQueue
+          -> one email per confirmed student + individual unsubscribe link
+
+No paid hosting, custom domain හෝ database service එකක් අවශ්‍ය නැහැ.
+Google limits ඇතුළත පාවිච්චි කරන්න. CAPTCHA optional; free Cloudflare
+Turnstile account එකක් භාවිත කළ හැකියි. Large-scale email service එකක්
+unlimited free කියලා මෙයින් සහතික කරන්නේ නැහැ.
+
+වැදගත්: referenced chat එකේ actual Apps Script code / styled email HTML
+ලබාගන්න බැරි වුණා; returned text එකේ content-reference markers පමණයි.
+ඒ නිසා original fetch/parser/renderer නැවත හදා ඇති බව කියන්නේ නැහැ.
+signup app එක සම්පූර්ණයි. Monitor සඳහා bridge code + adaptation example
+තියෙනවා. ඔබේ actual variable names / send points වලට ඒ calls සම්බන්ධ
+කළ යුතුයි. දැනට තියෙන script එක replace කරන්න එපා.
+
+Files:
+  signup/Code.gs             — complete public signup backend
+  signup/Index.html          — mobile-friendly form, confirm, unsubscribe
+  signup/appsscript.json     — new signup project's scopes/runtime
+  monitor/SubscriberBridge.gs — add to existing PRIVATE monitor
+  monitor/INTEGRATION-EXAMPLE.txt — how to connect the existing send points
+  tests/security.test.cjs    — offline test suite (Node.js built-ins only)
+
+02. Backup සහ private Sheet එක
+
+1) Existing Apps Script files සහ Script Properties secure backup එකක් ගන්න.
+   Tokens මේ chat එකට, public repo එකකට හෝ screenshots වලට දාන්න එපා.
+2) New Google Spreadsheet එකක් හදන්න: “SLTC LMS Alert Subscribers”.
+3) Share -> General access -> Restricted තබන්න. Publish to web කරන්න එපා.
+   Studentsට Sheet එක හෝ script editor access දෙන්න එපා.
+4) Spreadsheet URL එකේ /d/ සහ /edit අතර ID එක copy කරගන්න.
+5) Signup project සහ monitor එක එකම Google account එකෙන් run කිරීම
+   ලේසිම ක්‍රමයයි. වෙනත් trusted account එකක් නම් ඒ account එකට පමණක්
+   Sheet editor access දෙන්න. Google Workspace policy restrictions බලන්න.
+
+03. New signup Apps Script project එක
+
+1) script.google.com -> New project -> “SLTC LMS Alerts Signup”.
+2) Default Code.gs එකට signup/Code.gs දාන්න.
+3) + -> HTML -> “Index” නමින් file එක හදා signup/Index.html paste කරන්න.
+4) Project Settings -> Show “appsscript.json” manifest file enable කරන්න.
+   NEW signup project එකේ manifest එකට signup/appsscript.json දාන්න.
+   Existing monitor manifest එකට මේ manifest එක replace කරන්න එපා.
+5) Project Settings -> Script Properties එකේ පහත properties දාන්න:
+
+   SUBSCRIBERS_SHEET_ID = ඉහත private spreadsheet ID
+   CONTACT_EMAIL       = organiserගේ contact email (publicly shown)
+   SIGNUPS_ENABLED     = false
+   MAX_SUBSCRIBERS     = 200
+
+   CONTACT_EMAIL එකට සැබෑ organiser address එකම දාන්න.
+   MAX_SUBSCRIBERS 200 කියන්නේ mail/day capacity එකක් නෙවෙයි; safety cap.
+
+6) Save කර editor function selector එකෙන් setupSignup_ run කරන්න.
+   අවශ්‍ය Google permissions approve කරන්න. ඔබ ලියූ project එකමද බලන්න.
+   Function selector එකේ නොපෙනේ නම් save/reload කර බලන්න.
+   මෙයින් Subscribers tab, SIGNING_SECRET සහ daily pending-cleanup trigger
+   හැදෙනවා. Existing LMS trigger එක වෙනස් වෙන්නේ නැහැ.
+7) Script Properties refresh කළාම SIGNING_SECRET පේනවා. එය private තබන්න.
+   setup එකෙන් generate කළ එක වෙනුවට password manager/CSPRNG එකකින්
+   හැදූ 64+ random characters දැමිය හැකියි. Projects දෙකේ එකම key ඕන.
+
+04. Web deployment
+
+1) Deploy -> New deployment -> Select type -> Web app.
+2) Execute as: Me (organiser). Public usersට organiserගේ Google data
+   permissions ලබාදෙන්නේ නැහැ; server එක organiser ලෙස run වෙනවා.
+3) Who has access: Anyone, ඔබේ account/domain policy එක ඉඩ දෙන්නේ නම්.
+   “Anyone with Google account” පමණක් තිබේ නම් studentsට Google sign-in
+   අවශ්‍ය වෙනවා. Campus policy එක public access block කරන්නේ නම් admin
+   සමඟ විසඳන්න; මේ code එකෙන් ඒ policy එක bypass කරන්න බැහැ.
+4) Deploy -> /exec වලින් අවසන් වන URL එක copy කරන්න.
+5) Signup Script Properties:
+   WEB_APP_URL = https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+6) SIGNUPS_ENABLED = true කරන්න, පහත acceptance tests සමඟ පරීක්ෂා කරන්න.
+   /dev URL එක studentsට දෙන්න එපා; ඒක editors-only test endpoint එකයි.
+7) Code වෙනස් කළොත් Deploy -> Manage deployments -> Edit -> New version
+   -> Deploy. Same deployment update කර URL එක රැකගන්න. Properties
+   පමණක් වෙනස් කළ විට ඒවා runtime එකේ කියවනවා.
+8) Old insecure deployments තිබේ නම් archive කරන්න. Source එක fix කළාට
+   පරණ deployed version එක ස්වයංක්‍රීයව ආරක්ෂිත වෙන්නේ නැහැ.
+
+Confirm/unsubscribe link එක විවෘත කළ පමණින් mutation වෙන්නේ නැහැ.
+User අදාළ button එක ඔබන්න ඕන. මේක email-link scanners නිසා accidental
+confirm/unsubscribe වීම අඩු කරනවා. Links private capability links නිසා
+forward කිරීම හෝ public paste කිරීම නොකරන්න.
+
+05. Existing monitor එකට connect කරන්න
+
+1) Existing PRIVATE monitor project එකට SubscriberBridge.gs new script
+   file එකක් ලෙස දාන්න. Signup/Code.gs හෝ Index මෙයට දාන්න එපා.
+   Original monitor project එක public web app එකක් ලෙස deploy කරන්න එපා.
+   හේතුව: old top-level functions google.script.run හරහා expose වෙන්න
+   පුළුවන්. Separate project එක LMS token සහ old functions isolate කරනවා.
+2) Monitor Script Properties එකට මෙවා දාන්න:
+
+   SUBSCRIBERS_SHEET_ID = signup එකේ same Sheet ID
+   WEB_APP_URL         = signup එකේ same /exec URL
+   SIGNING_SECRET      = signup එකේ exact same private secret
+   MAIL_RESERVE        = 30
+   MAX_SEND_PER_RUN    = 40
+   LMS_AUTHTOKEN       = current PRIVATE LMS calendar token (monitor only)
+
+   LMS_AUTHTOKEN signup project එකට හෝ HTML එකට දාන්න එපා.
+   Original fetch එක hard-coded token භාවිත කරනවා නම් server-side
+   PropertiesService.getScriptProperties().getProperty('LMS_AUTHTOKEN')
+   කියවන්න වෙනස් කරන්න. Original URL parameter spelling preserve කරන්න.
+   Full private calendar URL එකත් secret එකක් ලෙස තබන්න.
+3) Monitor editor එකෙන් setupSubscriberBridge_ run කර authorize කරන්න.
+   Existing explicit oauthScopes තිබේ නම් Sheets සහ Mail scopes merge
+   කරන්න; existing fetch/Gmail/other scopes මකා දමන්න එපා. Bridge එකට:
+     https://www.googleapis.com/auth/spreadsheets
+     https://www.googleapis.com/auth/script.send_mail
+4) monitor/INTEGRATION-EXAMPLE.txt අනුව existing handler එකට calls එකතු
+   කරන්න. Styled HTML එක existing renderer එකෙන්ම pass කරන්න:
+     enqueueSubscriberAlert_(stableEventRevisionKey, {
+       subject: originalSubject,
+       body: originalPlainText,
+       htmlBody: originalStyledHtml
+     });
+5) Seen/event state mark කිරීමට පෙර enqueue success විය යුතුයි. Queue
+   error එක catch කර ignore කරලා seen mark කළොත් alerts නැති වෙන්න පුළුවන්.
+   Poll run එකක් වෙනස් වෙලා නැතත් drainSubscriberQueue_ run වෙන්න ඕන.
+6) Existing 15-minute trigger delete/recreate කරන්න එපා. Same handler
+   නම සහ timing තබන්න. No duplicate trigger. මේ bridge එක trigger හදන්නේ
+   නැහැ. Existing handler lock එකක් තිබේ නම් integration example එකේ
+   non-reentrant lock note කියවා locking එක සම්බන්ධ කරන්න.
+7) Ownerගේ original notification අවශ්‍ය නම් තබන්න. Old hard-coded student
+   To/CC/BCC list ඉවත් කරන්න. නැත්නම් unsubscribe කළ අයටත් old path එකෙන්
+   mail යාවි. Students auto-import / auto-confirm කරන්න එපා; opt-in ඕන.
+
+Existing subject/body/HTML, logo, colours සහ event detection logic bridge
+එක නැවත හදන්නේ නැහැ. ඒ rendered content එකේ unsubscribe footer එකක්
+පමණක් එක් කරනවා. Existing logo URL public-safe HTTPS URL එකක්ද බලන්න.
+ICS contents කියන්නේ untrusted input: title/description HTML-escape කරන්න.
+Normal LMS course/activity URLs භාවිත කරන්න; authtoken තියෙන export
+link එක studentsට යවන්න එපා. Bridge එක common token/export leaks block
+කරනවා; arbitrary obfuscation හඳුනාගන්න DLP system එකක් නෙවෙයි.
+
+06. Spam controls සහ optional CAPTCHA
+
+Default controls server එකේ enforce වෙනවා, browser validation පමණක් නොවේ:
+  • exact @sltc.ac.lk domain; no subdomains or mail header/formula injection
+  • consent + honeypot + server-signed form timestamp
+  • same email: 10-minute resend cooldown; maximum 3 verification emails/day
+  • whole app: maximum 20 verification emails/day; 300 accepted attempts/day
+  • at least 40 remaining mail recipients required before verification send
+  • private hashed verification token, expires in 30 minutes, single use
+  • 1000 pending+confirmed records; default 200 confirmed cap
+  • ScriptLock serialises signup mutations and durable quota counters
+  • no public subscriber list, count, recipient dump, or admin RPC
+
+Daily abuse counters use Asia/Colombo calendar dates. Google email quota
+resets on Google's own 24-hour window; these are DIFFERENT windows.
+Form proof is not a CAPTCHA and is not single-use; humans/bots can fetch
+another form. Determined attackers can consume the small global budget or
+cause up to the capped number of unwanted verification emails. Google Apps
+Script does not supply a dependable client IP in doGet's documented event,
+so this code does not pretend to enforce IP limits or DDoS protection.
+Global caps protect mail spend/quota but can temporarily deny valid signup.
+If attacked: SIGNUPS_ENABLED=false, inspect privately, enable CAPTCHA,
+then reopen. Unsubscribe remains available while signups are paused.
+
+Optional Cloudflare Turnstile (recommended before widely sharing publicly):
+1) Create a free Managed widget in Cloudflare Turnstile dashboard.
+2) Apps Script HTMLService runs inside a Google-hosted iframe. The actual
+   iframe hostname may differ from script.google.com. Use browser DevTools
+   to identify the rendered iframe hostname and register that exact hostname
+   if Cloudflare allows it. Do not assume a fixed hostname or use a wildcard
+   Google domain. If hostname/iframe restrictions prevent reliable operation,
+   keep the conservative default or use dedicated hosting for stronger abuse
+   protection. This integration has not been tested in a live Google iframe.
+3) Set ALL these signup Script Properties:
+     TURNSTILE_SITE_KEY   = public site key
+     TURNSTILE_SECRET_KEY = private secret key
+     TURNSTILE_HOSTNAME   = exact expected hostname reported by Siteverify
+4) Widget action is “signup”; server checks success + action + hostname.
+   Siteverify tokens are single use and expire after five minutes.
+5) Test real widget on deployed /exec, including failed/expired challenges.
+   Partial configuration fails closed; no insecure bypass after CAPTCHA error.
+   Remove BOTH site and secret key properties to intentionally disable it.
+   Do not deploy Cloudflare test keys as real protection.
+6) Privacy disclosure already mentions Google and optional Cloudflare.
+
+07. Quotas: free නමුත් unlimited නොවේ
+
+Google official quota page checked 2026-10-28:
+  Consumer account: 100 email recipients/day.
+  Google Workspace: 1,500 email recipients/day; within-domain quota listed
+  separately as 2,000/day. Trial/new accounts සහ domain rules වෙනස් විය හැකියි.
+  A student .ac.lk address does not automatically guarantee Workspace quotas.
+  Quotas apply to the SENDER/organiser account, not each student's account.
+  Other scripts using that sender consume the same allowance.
+  Per execution runtime: 6 minutes.
+  Trigger total runtime/day: consumer 90 minutes; Workspace 6 hours.
+
+Example: 20 students x 2 digests/day = 40 recipients; plus 20 confirmation
+emails = 60. Owner mail සහ වෙනත් script mailත් count කරන්න. Small batch
+digest එකක් event එකකට වෙන වෙනම mail කරන එකට වඩා quota ඉතිරි කරනවා.
+50 students x 3 alerts = 150 BEFORE confirmations, so ordinary free Gmail
+account එකකට ඒක දිනකට සම්පූර්ණයෙන් යවන්න බැහැ. BCC quota bypass එකක් නොවේ.
+
+MailApp.getRemainingDailyQuota() runtime එකේ බලනවා. Queue එක reserve 30
+තබාගන්නවා; actual available throughput ordering සහ verification sends අනුව
+වෙනස් වෙනවා. Sending batch max40/run, bridge time budget3 minutes. Original
+monitor runtimeත් එකතු වෙන නිසා full run6 minutes ඇතුළත තබන්න. 15-minute
+trigger ආසන්න වශයෙන් 96 checks/day; exact clock time/email arrival guarantee
+කරන්නේ නැහැ. PC off වුණත් Google's cloud එකේ trigger run වෙනවා.
+
+Queue cursor quota-limited/failed sends ඊළඟ scheduled run එකේ resume කරනවා.
+Unsubscribe කළ ID එක send කිරීමට පෙර නැවත check කරනවා. Already in-flight
+mail එකක් arrive විය හැකියි. Rare crash after send/before cursor commit
+නිසා duplicate mail එකක් යා හැකියි (at-least-once, not exactly-once).
+
+Jobs older than7 days become “expired”; 5 consecutive send exceptions mark
+a job “failed” and stop that job. Check AlertQueue daily when operating the
+service. Fix cause, then set failed job status back to “pending” and failures
+to0 if retry is appropriate. Do not resend outdated deadlines blindly.
+There is no extra admin failure-notification email in this package.
+Completed job IDs retained30 days for deduplication then pruned; event seen
+state in original monitor must remain durable. Don't replay historical events
+older than this queue retention. New subscribers receive only future queued
+alerts, not past alerts. Queue contains subscriber IDs, not email addresses.
+Some rendered course content is retained privately; do not share this tab.
+
+08. Privacy / unsubscribe / retention
+
+Only confirmed rows are recipients. Every alert has its own signed unsubscribe
+link. Opening it and pressing Unsubscribe deletes that subscriber row. A later
+signup creates a new ID and needs confirmation again. Queued mail referencing
+an old deleted ID is skipped.
+
+Pending records older than24h since last request are deleted by the daily
+cleanup trigger (normally within48h; outages can delay cleanup). Confirmed
+records last until unsubscribe/service closure. Consent version + timestamps
+record the opt-in. Sheet version history, delivered mail, provider logs and
+backups may retain copies under Google's policies. Do not promise instant
+deletion from every provider backup. Restrict editors and avoid PII logging.
+
+If someone loses the unsubscribe link, organiser verifies the request and
+deletes ONLY that person's row privately. Do not publish emails to identify
+students. At shutdown: disable new signups, stop subscriber sends, delete
+subscriber records/queue as appropriate and archive public deployment.
+
+09. Token/security rotation
+
+LMS_AUTHTOKEN is DIFFERENT from SIGNING_SECRET and confirmation link tokens.
+  • LMS_AUTHTOKEN: private LMS calendar access; monitor project only.
+  • SIGNING_SECRET: HMAC signing key shared by these TWO private projects.
+  • Email link tokens: limited verification/unsubscribe capabilities.
+
+If old chat/code/screenshots contained an actual LMS token or private ICS URL,
+treat it as exposed. In LMS, regenerate/revoke the calendar export token if
+the LMS supports it; otherwise ask the LMS administrator to revoke it. Menu
+names depend on SLTC's LMS version. Changing password alone may not revoke
+a calendar export token. Confirm that the OLD URL no longer returns private
+events; do not post old/new token here. Update monitor property, test one
+private fetch without logging URL/body/token, then continue the same trigger.
+Never proxy that feed publicly, log fetch errors containing the URL, or put
+the feed URL in HTML/email/assets/source control. Script Properties hide
+secrets from students but trusted project editors can still read them; they
+are not a separate encrypted vault against editors.
+
+SIGNING_SECRET rotation after suspected exposure:
+1) Pause signups and temporarily pause the monitor trigger while recording
+   its existing handler/frequency (no new duplicate trigger).
+2) Put a new CSPRNG-generated64+ character secret in BOTH projects.
+3) Delete all pending rows to revoke outstanding confirmation tokens.
+   Their verification hashes alone would still validate until expiration;
+   changing signing key alone does NOT revoke already-issued confirm links.
+4) Confirmed rows can stay. Old unsubscribe links stop validating. Future
+   mail signs fresh links with the new secret. Offer private manual removal
+   for students whose only copy is an old link.
+5) Resume same trigger and signups after testing. If project editors were
+   compromised, remove access and review Sheet, source and deployments too.
+
+Routine secret rotations should be planned: do not silently break old
+unsubscribe links unnecessarily. Optional TURNSTILE_SECRET_KEY rotation is
+separate; change it in Cloudflare and signup properties, then test.
+
+10. Acceptance tests BEFORE sharing the link
+
+1) Use actual /exec on a phone (or narrow browser), signed out/incognito.
+   Check text, checkbox, keyboard, button feedback, accessibility and privacy.
+2) A non-@sltc.ac.lk email / missing consent must receive no email.
+3) A real consenting student mailbox receives the confirmation within normal
+   delivery time (check Spam). Row status remains pending until button click.
+4) Opening confirmation link alone must not activate. Button activates once.
+   Reused/changed/expired link must fail. After changing expiry in a TEST row
+   to a past timestamp, confirmation must fail.
+5) Request same email again within10 minutes: no new confirmation. No public
+   response should disclose whether an email is already confirmed.
+6) Queue one harmless test alert with a stable test ID and your existing HTML.
+   Verify each consenting test mailbox gets its OWN mail with original design,
+   safe normal LMS links, correct footer, and no other subscriber addresses.
+7) Enqueue same test ID again: no duplicate job. Different revision: new job.
+8) In TEST ONLY set MAIL_RESERVE above current quota: delivery stays queued.
+   Restore30, next drain resumes. No new events should be needed for draining.
+9) Open unsubscribe link: still subscribed until button. Then record is deleted
+   and subsequent queued mail to that ID is skipped. Do not test on real users
+   without their consent. Check new signup requires confirmation again.
+10) Confirm daily cleanup trigger and original15-minute trigger are present
+    exactly once. Check Executions and AlertQueue statuses after one real run.
+11) View page source/browser responses: no LMS token, signing key or subscriber
+    list. Remember organiser contact and public CAPTCHA site key are public.
+12) If CAPTCHA configured, test it with real production keys/allowed iframe
+    hostname. Invalid/replayed token must not send verification mail.
+
+Offline verification included:
+  node tests/security.test.cjs
+19 checks passed when built; JavaScript server/client syntax parses. Mocks
+exercise domain restrictions, consent/honeypot/form age, token expiry/tamper/
+replay, pending exclusion, cooldown, deduplication, quota deferral, individual
+styled mail, unsubscribe deletion/recheck, leak guards, retry, daily mail cap,
+CAPTCHA partial-config fail-closed and private RPC surface. These do NOT
+verify real Google authorization, HTMLService rendering, Cloudflare iframe
+compatibility, Sheet permissions, original script integration or deliverability.
+No live deployment or live LMS/email calls were made to your accounts.
+
+11. Official documentation used
+
+Google quotas (limits can change; verify before expanding):
+https://developers.google.com/apps-script/guides/services/quotas
+Web app deploy/access and /dev versus /exec:
+https://developers.google.com/apps-script/guides/web
+google.script.run and private functions ending in underscore:
+https://developers.google.com/apps-script/guides/html/communication
+MailApp remaining quota and send:
+https://developers.google.com/apps-script/reference/mail/mail-app
+Installable/time-driven triggers:
+https://developers.google.com/apps-script/guides/triggers/installable
+Cloudflare mandatory server validation / token lifetime:
+https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
+
+Code එක upload කරලා properties එක වරක් configure කර, original monitor එකට
+bridge calls සම්බන්ධ කර acceptance tests pass කළාම website link එක share
+කරන්න පුළුවන්. ඊට පස්සේ students add වෙන විට script settings edit කිරීමක්
+අවශ්‍ය නැහැ.

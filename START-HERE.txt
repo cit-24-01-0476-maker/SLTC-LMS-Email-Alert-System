@@ -1,0 +1,32 @@
+SLTC LMS Alerts — මේ project එක මෙතැනින් පටන් ගන්න
+
+Website එක බලන්න:
+  index.html file එක browser එකෙන් open කරන්න.
+  මෙය LOCAL PREVIEW එකක්. Email යවන්නේ හෝ save කරන්නේ නැහැ.
+  Original UI source එක signup/Index.html. Preview එක edit කරන්න එපා;
+  original එක edit කරලා npm run build නැවත run කරන්න.
+
+Live signup app එක:
+  signup/Code.gs + signup/Index.html + signup/appsscript.json
+  Google Apps Script new project එකකට upload කරන්න.
+  Private Google Sheet සහ Script Properties එක වරක් configure කරන්න.
+  DEPLOY-SINHALA.txt එකේ සම්පූර්ණ පියවර තියෙනවා.
+  Students එකතු වෙන හැම වෙලාවෙම settings වෙනස් කරන්න ඕන නැහැ.
+
+Existing monitor එකට:
+  monitor/SubscriberBridge.gs add කරන්න.
+  monitor/INTEGRATION-EXAMPLE.txt අනුව existing send points connect කරන්න.
+  දැනට තියෙන styled email renderer සහ 15-minute trigger තබාගන්න.
+  Actual old script එක මේ folder එකේ නැති නිසා ඒ exact integration එක
+  තවම සම්බන්ධ කර නැහැ. මේක existing monitor replacement එකක් නෙවෙයි.
+
+Commands (Node.js installed නම්; npm install අවශ්‍ය නැහැ):
+  npm test          — offline security / behaviour checks
+  npm run build     — index.html local preview එක නැවත හදන්න
+
+Private LMS authtoken, subscriber list හෝ signing key source files වලට,
+preview එකට, public repository එකකට දාන්න එපා. Secret configuration එක
+Google Script Properties තුළ තබන්න. Live Google deployment තවම කර නැහැ.
+
+Shared monitor එකේ course events පමණයි alerts ලෙස ලැබෙන්නේ.
+එක් එක් studentගේ personalised LMS courses මෙයින් fetch කරන්නේ නැහැ.

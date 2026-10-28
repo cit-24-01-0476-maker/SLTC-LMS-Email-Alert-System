@@ -1,0 +1,48 @@
+THIS IS AN ADAPTATION EXAMPLE, NOT A REPLACEMENT LMS MONITOR.
+The previous conversation did not expose your actual script or renderer.
+Rename variables below to those already used in your existing function.
+
+1. Leave your current 15-minute trigger pointing to the SAME handler.
+2. At the very start of that handler, before any early return or LMS fetch:
+
+   drainSubscriberQueue_();
+
+3. Keep your existing fetch, parsing, calendar comparison, styled renderer,
+   deadlines, reminders, timezone and owner notifications.
+
+4. At each point that a new alert/digest is ready, BEFORE recording it as seen,
+   enqueue the exact same rendered content for confirmed students:
+
+   const result = enqueueSubscriberAlert_(
+     'event:' + event.uid + ':revision:' + event.lastModified + ':kind:new',
+     { subject: subject, body: plainTextBody, htmlBody: existingStyledHtml }
+   );
+   if (result.busy) throw new Error('Queue busy; retry on next scheduled run');
+   // Only now persist your existing "seen" state for this event/revision.
+   // Keep your existing owner mail if desired. Remove old hard-coded student
+   // recipients so unconfirmed/unsubscribed students cannot still receive mail.
+
+5. Near the end of the handler, call:
+
+   drainSubscriberQueue_();
+
+For a digest use a stable key derived from the sorted event UID + relevant
+revision pairs + alert kind (include the intended reminder interval/date).
+Do NOT use Date.now() or a random key: every polling run would queue duplicates.
+If LAST-MODIFIED is absent, hash canonical relevant event fields (UID, DTSTART,
+DTEND, SUMMARY, DESCRIPTION). Do not hash changing download timestamps.
+An unchanged event's later reminder needs its own stable reminder key.
+
+If your existing handler already holds a ScriptLock, do not nest the bridge
+lock under it. Apps Script locks are not re-entrant. Keep the monitor's own
+lock around its fetch/diff/seen-state work, release it before bridge calls,
+or consolidate locking deliberately. Do not simply remove concurrency safety.
+
+Monitor property LMS_AUTHTOKEN must be used SERVER-SIDE in the original fetch.
+Use normal LMS course/activity links in mail, never a private ICS export URL.
+Escape course names/descriptions in your existing HTML renderer.
+
+Queue success means stored, not delivered. Quota-limited mail resumes next run.
+Review AlertQueue status failed/expired; execution success alone does not prove
+delivery. A rare crash after sending but before cursor commit can duplicate
+one email. Do not promise exactly-once delivery or exact 15-minute arrival.
