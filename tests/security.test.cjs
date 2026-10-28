@@ -55,6 +55,24 @@ check('Deployed URL is discovered automatically but invalid URLs fail closed',()
   delete props.WEB_APP_URL;assert.equal(ctx.saUrl_(),oldUrl);
   props.WEB_APP_URL='https://untrusted.example/exec';assert.throws(()=>ctx.saUrl_());props.WEB_APP_URL=oldUrl;
 });
-for(const file of ['signup/Code.gs','monitor/SubscriberBridge.gs'])new vm.Script(fs.readFileSync(path.join(base,file),'utf8'),{filename:file});
+check('Owner setup entry points declare email identity scope and reject anonymous or other users',()=>{
+  for(const section of ['signup','monitor']){
+    const manifest=JSON.parse(fs.readFileSync(path.join(base,section,'appsscript.json'),'utf8'));
+    assert(manifest.oauthScopes.includes('https://www.googleapis.com/auth/userinfo.email'));
+    const source=fs.readFileSync(path.join(base,section,'StartHere.gs'),'utf8');
+    for(const active of ['', 'other@sltc.ac.lk']){
+      let called=false;const c=vm.createContext({Session:{getActiveUser:()=>({getEmail:()=>active}),getEffectiveUser:()=>({getEmail:()=> 'owner@example.com'})},setupSignup_:()=>called=true,setupSubscriberBridge_:()=>called=true});
+      vm.runInContext(source,c);assert.throws(()=>section==='signup'?c.finishSignupSetup():c.finishMonitorSetup(),/owner editor/);assert(!called);
+    }
+  }
+});
+check('Owner setup preserves configured subscriber records, keys and original scheduling',()=>{
+  const p={SUBSCRIBER_ALERTS_ENABLED:'false',LMS_ICAL_URL:'private-feed',ALERT_EMAIL:'owner@example.com'};let bridgeCalls=0;
+  const c=vm.createContext({console:{log(){}},Session:{getActiveUser:()=>({getEmail:()=> 'owner@example.com'}),getEffectiveUser:()=>({getEmail:()=> 'owner@example.com'})},PropertiesService:{getScriptProperties:()=>({setProperty:(k,v)=>p[k]=v})},setupSignup_:()=>({spreadsheetId:'existing-sheet',signupsEnabled:true}),setupSubscriberBridge_:()=>bridgeCalls++});
+  vm.runInContext(fs.readFileSync(path.join(base,'signup/StartHere.gs'),'utf8'),c);
+  vm.runInContext(fs.readFileSync(path.join(base,'monitor/StartHere.gs'),'utf8'),c);
+  c.finishSignupSetup();c.finishMonitorSetup();assert.equal(bridgeCalls,1);assert.equal(p.SUBSCRIBER_ALERTS_ENABLED,'true');assert.equal(p.LMS_ICAL_URL,'private-feed');assert.equal(p.ALERT_EMAIL,'owner@example.com');
+});
+for(const file of ['signup/Code.gs','signup/StartHere.gs','monitor/SubscriberBridge.gs','monitor/StartHere.gs'])new vm.Script(fs.readFileSync(path.join(base,file),'utf8'),{filename:file});
 const html=fs.readFileSync(path.join(base,'signup/Index.html'),'utf8');new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1].replace('<?!= boot ?>',Buffer.from('{}').toString('base64')));
 console.log(`${checks} checks passed. Server and client JavaScript parse successfully. Live deployment and mail delivery still require acceptance testing.`);

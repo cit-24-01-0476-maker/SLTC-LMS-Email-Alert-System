@@ -34,6 +34,8 @@ SubscriberBridge.gs add කරන්න. Original renderer එක exact ලෙ�
 
 Files:
   signup/Code.gs             — complete public signup backend
+  signup/StartHere.gs         — owner-checked editor setup entry point
+  monitor/StartHere.gs        — owner-checked monitor setup entry point
   signup/Index.html          — mobile-friendly form, confirm, unsubscribe
   signup/appsscript.json     — new signup project's scopes/runtime
   monitor/SubscriberBridge.gs — add to existing PRIVATE monitor
@@ -56,13 +58,14 @@ Files:
 
 1) script.google.com -> New project -> “SLTC LMS Alerts Signup”.
 2) Default Code.gs එකට signup/Code.gs දාන්න.
+   + -> Script -> StartHere හදා signup/StartHere.gs content එක දාන්න.
 3) + -> HTML -> “Index” නමින් file එක හදා signup/Index.html paste කරන්න.
 4) Project Settings -> Show “appsscript.json” manifest file enable කරන්න.
    NEW signup project එකේ manifest එකට signup/appsscript.json දාන්න.
    Existing monitor manifest එකට මේ manifest එක replace කරන්න එපා.
 5) Project Settings -> Script Properties එකේ පහත properties දාන්න:
 
-   SUBSCRIBERS_SHEET_ID = existing Sheet ID (optional; setupSignup_ auto-creates one if omitted)
+   SUBSCRIBERS_SHEET_ID = existing Sheet ID (optional; finishSignupSetup auto-creates one if omitted)
    CONTACT_EMAIL       = organiserගේ contact email (publicly shown)
    SIGNUPS_ENABLED     = false
    MAX_SUBSCRIBERS     = 200
@@ -70,7 +73,7 @@ Files:
    CONTACT_EMAIL එකට සැබෑ organiser address එකම දාන්න.
    MAX_SUBSCRIBERS 200 කියන්නේ mail/day capacity එකක් නෙවෙයි; safety cap.
 
-6) Save කර editor function selector එකෙන් setupSignup_ run කරන්න.
+6) Save කර editor function selector එකෙන් finishSignupSetup run කරන්න.
    අවශ්‍ය Google permissions approve කරන්න. ඔබ ලියූ project එකමද බලන්න.
    Function selector එකේ නොපෙනේ නම් save/reload කර බලන්න.
    මෙයින් Subscribers tab, SIGNING_SECRET සහ daily pending-cleanup trigger
@@ -112,8 +115,8 @@ QUICK-DEPLOY-SINHALA.txt හි B කොටස අනුගමනය කරන�
 කරන්න. Existing LMS_ICAL_URL සහ ALERT_EMAIL මකා දමන්න එපා.
 
 Old Code.gs replace කරන්න; same functions දෙවරක් තියෙන්න එපා. Existing
-private monitor එකට SubscriberBridge.gs add කර Sheet ID, signing secret,
-signup /exec URL configure කරන්න. setupSubscriberBridge_ Run කර new
+private monitor එකට SubscriberBridge.gs සහ StartHere.gs add කර Sheet ID, signing secret,
+signup /exec URL configure කරන්න. finishMonitorSetup Run කර new
 permissions authorize කළ පසු SUBSCRIBER_ALERTS_ENABLED=true කරන්න.
 Existing checkLms trigger එක නැවත හදන්න අවශ්‍ය නැහැ. Queue එක එම lock
 එක යටතේම run වෙන නිසා nested lock acquisition වෙන්නේ නැහැ.
@@ -136,7 +139,7 @@ Default controls server එකේ enforce වෙනවා, browser validation �
   • private hashed verification token, expires in 30 minutes, single use
   • 1000 pending+confirmed records; default 200 confirmed cap
   • ScriptLock serialises signup mutations and durable quota counters
-  • no public subscriber list, count, recipient dump, or admin RPC
+  • no public subscriber list, count, recipient dump, or anonymous admin access
 
 Daily abuse counters use Asia/Colombo calendar dates. Google email quota
 resets on Google's own 24-hour window; these are DIFFERENT windows.
@@ -296,7 +299,7 @@ separate; change it in Cloudflare and signup properties, then test.
 
 Offline verification included:
   node tests/security.test.cjs
-39 checks passed when built; JavaScript server/client syntax parses. Mocks
+41 checks passed when built; JavaScript server/client syntax parses. Mocks
 exercise domain restrictions, consent/honeypot/form age, token expiry/tamper/
 replay, pending exclusion, cooldown, deduplication, quota deferral, individual
 styled mail, unsubscribe deletion/recheck, leak guards, retry, daily mail cap,

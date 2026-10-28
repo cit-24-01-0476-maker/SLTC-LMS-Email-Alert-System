@@ -6,8 +6,9 @@ code, private LMS export URL හෝ signing secret chat/repo එකට දාන
 
 A. Signup project (NEW, public website)
 
-1. signup/Code.gs, signup/Index.html, signup/appsscript.json upload කරන්න.
-2. Google editor එකෙන් setupSignup_ එක වරක් Run කරන්න; Google permissions
+1. signup/Code.gs, signup/StartHere.gs, signup/Index.html,
+   signup/appsscript.json upload කරන්න.
+2. Google editor එකෙන් finishSignupSetup එක වරක් Run කරන්න; Google permissions
    approve කරන්න. Private subscriber Sheet සහ daily cleanup trigger එක auto
    හැදෙනවා. Existing Sheet එකක් ඕන නම් පමණක් කලින් Sheet ID configure කරන්න.
 3. Deploy -> Web app -> Execute as Me -> Anyone. /exec URL එක ලැබෙනවා.
@@ -16,14 +17,15 @@ A. Signup project (NEW, public website)
      SIGNUPS_ENABLED = true
      CONTACT_EMAIL = organiserගේ publicly displayed contact email
    WEB_APP_URL අතින් දාන්න අත්‍යවශ්‍ය නැහැ; deployed URL auto-discover වෙනවා.
-5. setupSignup_ විසින් සෑදූ SUBSCRIBERS_SHEET_ID සහ SIGNING_SECRET values
+5. finishSignupSetup විසින් සෑදූ SUBSCRIBERS_SHEET_ID සහ SIGNING_SECRET values
    Google editor තුළින්ම private monitor properties වලට copy කරන්න.
    Signing secret screenshots/chat/repo එකට දාන්න එපා.
 
 B. Existing monitor project (PRIVATE)
 
 1. Existing source backup එක රැකගන්න. monitor/LmsMonitor.gs content එකෙන්
-   old Code.gs replace කරන්න. monitor/SubscriberBridge.gs file එක add කරන්න.
+   old Code.gs replace කරන්න. monitor/SubscriberBridge.gs සහ
+   monitor/StartHere.gs files add කරන්න.
    Old functions දෙවරක් තියෙන්න එපා. මේ project එක public deploy කරන්න එපා.
 2. Existing LMS_ICAL_URL, ALERT_EMAIL, LMS_INITIALIZED, EVT_* properties
    මකා දමන්න එපා. Existing checkLms 15-minute trigger එකත් තබාගන්න.
@@ -34,7 +36,7 @@ B. Existing monitor project (PRIVATE)
      SUBSCRIBER_ALERTS_ENABLED = false (setup/test අවසන් වන තුරු)
      MAIL_RESERVE = 30
      MAX_SEND_PER_RUN = 40
-4. setupSubscriberBridge_ Run කර new Sheets/Mail permissions approve කරන්න.
+4. finishMonitorSetup Run කර new Sheets/Mail permissions approve කරන්න.
    AlertQueue tab හැදෙනවා. Monitor manifest එකේ explicit oauthScopes තිබේ
    නම් Sheets, Mail සහ existing fetch/trigger scopes merge කරන්න.
 5. SUBSCRIBER_ALERTS_ENABLED = true කරන්න. checkLms Run කර test කරන්න.
@@ -64,7 +66,7 @@ formatting සහ legacy event fingerprints රැකලා තියෙනව�
 fetch redirects reject වෙනවා; token/export event links safe LMS dashboard
 link එකකට හැරෙනවා. Fetch failure errors වල private feed URL print නොවේ.
 
-Checks: 21 signup/security +18 original-monitor integration =39 pass.
+Checks: 23 signup/security +18 original-monitor integration =41 pass.
 Offline tests real account authorization හෝ email deliverability prove නොකරයි.
 Google quotas සහ Sheet privacy limitations DEPLOY-SINHALA.txt තුළ තියෙනවා.
 Only the shared monitor's courses/events are broadcast; personalised courses
