@@ -18,6 +18,13 @@ function frontend(hash=''){
   return {context,get,frames,events,nonce,peer,sent,receive,ready};
 }
 async function main(){
+await check('Published assets have verified integrity and restrictive content policy',()=>{
+  for(const page of ['index.html','admin.html']){
+    const html=fs.readFileSync(path.join(root,page),'utf8');assert(html.includes('Content-Security-Policy'));assert(html.includes("object-src 'none'"));assert(!html.includes("'unsafe-inline'"));
+    const matches=[...html.matchAll(/(?:src|href)="\.\/(assets\/[^"]+)\?v=([a-f0-9]{12})" integrity="sha384-([^"]+)"/g)];assert(matches.length>=3);
+    for(const [,asset,version,hash]of matches){const bytes=fs.readFileSync(path.join(root,asset));assert.equal(version,crypto.createHash('sha256').update(bytes).digest('hex').slice(0,12));assert.equal(hash,crypto.createHash('sha384').update(bytes).digest('base64'));}
+  }
+});
 await check('GitHub production page contains the real app, not a fake-success preview',()=>{
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert(html.includes('./assets/app.js'));assert(!html.includes('Preview only'));assert(!html.includes('<?'));assert(!html.includes('google.script.run'));assert(html.includes('University email'));assert(fs.existsSync(path.join(root,'.nojekyll')));

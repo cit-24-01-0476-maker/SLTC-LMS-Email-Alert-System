@@ -1,12 +1,15 @@
 (() => {
   'use strict';
-  const $=id=>document.getElementById(id),storageKey='sltc-admin-session';
-  let session=null,subscribers=[],pollTimer,expiryTimer,connected=false,busy=false;
+  if(window.top!==window.self){document.documentElement.textContent='Open the admin page directly to sign in.';return;}
+  const $=id=>document.getElementById(id);
+  // Remove credentials cached by older releases; new sessions live in memory only.
+  try{sessionStorage.removeItem('sltc-admin-session');}catch(_){}
+  let session=null,subscribers=[],pollTimer,expiryTimer,idleTimer,resendTimer,connected=false,busy=false,otpChallenge='',otpExpires=0,resendAt=0,lastActivity=0;
   const date=value=>Number(value)?new Intl.DateTimeFormat('en-LK',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Colombo'}).format(new Date(Number(value))):'Not reported yet';
   const names={UPDATE_CALENDAR:'Update calendar link',TEST_CONNECTION:'Test connection',RUN_CHECK:'Check calendar',RETRY_QUEUE:'Retry alerts',REPAIR:'Repair monitor'};
   function message(text,error=false){$('adminStatus').textContent=text;$('adminStatus').classList.toggle('error',error);}
-  function saveSession(value){session=value;try{if(value)sessionStorage.setItem(storageKey,JSON.stringify(value));else sessionStorage.removeItem(storageKey);}catch(_){};}
-  function forget(){saveSession(null);subscribers=[];$('subscriberRows').textContent='';$('commandRows').textContent='';$('calendarUrl').value='';$('adminCode').value='';$('subscriberSearch').value='';for(const id of ['ownerEmail','lastSuccess','lastWorker','calendarState','scheduleState','quotaState','healthMessage','healthBadge','confirmedCount','pendingCount','activeCount','queueCount','failedCount','lastRefresh','sessionInfo'])$(id).textContent='';$('dashboard').hidden=true;$('loginPanel').hidden=false;$('logout').hidden=true;$('sessionInfo').hidden=true;if(pollTimer)clearInterval(pollTimer);clearTimeout(expiryTimer);pollTimer=null;}
+  function saveSession(value){session=value;}
+  function forget(){saveSession(null);subscribers=[];$('subscriberRows').textContent='';$('commandRows').textContent='';$('calendarUrl').value='';$('adminCode').value='';otpChallenge='';otpExpires=0;$('loginForm').hidden=true;$('getCode').textContent='Get code';$('getCode').disabled=!connected||Date.now()<resendAt;$('subscriberSearch').value='';for(const id of ['ownerEmail','lastSuccess','lastWorker','calendarState','scheduleState','quotaState','healthMessage','healthBadge','confirmedCount','pendingCount','activeCount','queueCount','failedCount','lastRefresh','sessionInfo'])$(id).textContent='';$('dashboard').hidden=true;$('loginPanel').hidden=false;$('logout').hidden=true;$('sessionInfo').hidden=true;if(pollTimer)clearInterval(pollTimer);clearTimeout(expiryTimer);clearTimeout(idleTimer);pollTimer=null;}
   function buttons(disabled){busy=disabled;document.querySelectorAll('.command,#saveCalendar,#refresh').forEach(b=>b.disabled=disabled);}
   async function api(method,args){const result=await connection.call(method,args);if(!result.ok){if(result.error==='UNAUTHENTICATED'&&method!=='adminLogin'&&session?.token===args[0])forget();throw new Error(result.message||'Please try again later.');}return result.data;}
   function cell(row,text){const td=document.createElement('td');td.textContent=text;row.appendChild(td);return td;}
@@ -37,26 +40,35 @@
   }
   async function refresh(showMessage=true){
     if(!session||!connected)return;
-    if(Number(session.expires)<=Date.now()){forget();message('Session expired. Enter your admin code again.');return;}
+    if(Number(session.expires)<=Date.now()){forget();message('Session expired. Get a new verification code.');return;}
     const current=session.token;
     try{const data=await api('adminState',[current]);if(!session||session.token!==current)return;render(data);if(showMessage)message('Dashboard is up to date.');}
     catch(error){message(error.message,true);}
   }
+  function endSession(text){const token=session?.token;forget();message(text);if(token)connection.call('adminLogout',[token]).catch(()=>{});}
+  function activity(){if(!session)return;lastActivity=Date.now();clearTimeout(idleTimer);idleTimer=setTimeout(()=>endSession('Session locked after inactivity. Get a new verification code.'),300000);}
   async function enter(){
     $('loginPanel').hidden=true;$('dashboard').hidden=false;$('logout').hidden=false;$('sessionInfo').hidden=false;
-    const current=session.token;clearTimeout(expiryTimer);expiryTimer=setTimeout(()=>{forget();message('Session expired. Enter your admin code again.');},Math.max(0,Number(session.expires)-Date.now()));
+    const current=session.token;activity();clearTimeout(expiryTimer);expiryTimer=setTimeout(()=>{endSession('Session expired. Get a new verification code.');},Math.max(0,Number(session.expires)-Date.now()));
     $('sessionInfo').textContent='Session expires '+date(session.expires);await refresh();if(!session||session.token!==current)return;
     if(!pollTimer)pollTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!busy)refresh(false);},60000);
   }
-  const connection=new SLTCConnection({onReady:()=>{connected=true;$('loginButton').disabled=false;$('reconnect').hidden=true;message('Secure connection ready. Enter your admin code.');if(session)enter();},onError:()=>{connected=false;$('loginButton').disabled=true;$('reconnect').hidden=false;message('Connection unavailable. Retry, or open this page in a private window.',true);}});
-  try{const stored=JSON.parse(sessionStorage.getItem(storageKey)||'null');if(stored&&/^[a-f0-9]{64}$/.test(stored.token)&&Number(stored.expires)>Date.now())session=stored;}catch(_){}
+  const connection=new SLTCConnection({onReady:()=>{connected=true;$('getCode').disabled=Date.now()<resendAt;$('loginButton').disabled=!otpChallenge;$('reconnect').hidden=true;message('Secure connection ready. Press Get code to sign in.');if(session)enter();},onError:()=>{connected=false;$('getCode').disabled=true;$('loginButton').disabled=true;$('reconnect').hidden=false;message('Connection unavailable. Retry, or open this page in a private window.',true);}});
+  $('getCode').onclick=async()=>{
+    if(!connected)return;$('getCode').disabled=true;message('Sending a verification code…');
+    try{const data=await api('requestAdminCode',[]);otpChallenge=data.challengeId;otpExpires=data.expires;resendAt=data.resendAfter;
+      $('loginForm').hidden=false;$('loginButton').disabled=false;$('getCode').textContent='Resend code';$('adminCode').focus();
+      message('Check the configured admin inbox and Spam folder. Use the latest code within 10 minutes.');
+      clearTimeout(resendTimer);resendTimer=setTimeout(()=>{$('getCode').disabled=!connected;},Math.max(0,resendAt-Date.now()));
+    }catch(error){message(error.message,true);$('getCode').disabled=!connected;}
+  };
   $('loginForm').onsubmit=async event=>{
-    event.preventDefault();const code=$('adminCode').value.trim();if(!/^\d{6}$/.test(code)){message('Enter your six-digit admin code.',true);return;}
+    event.preventDefault();const code=$('adminCode').value.replace(/\s/g,'');if(!otpChallenge||Date.now()>=otpExpires){message('Get a new verification code first.',true);return;}if(!/^\d{8}$/.test(code)){message('Enter the eight-digit code from the latest email.',true);return;}
     $('loginButton').disabled=true;message('Signing in…');
-    try{const data=await api('adminLogin',[code]);saveSession({token:data.token,expires:data.expires});await enter();}
+    try{const data=await api('adminLogin',[code,otpChallenge]);saveSession({token:data.token,expires:data.expires});await enter();}
     catch(error){message(error.message,true);}finally{$('adminCode').value='';$('loginButton').disabled=!connected;}
   };
-  $('logout').onclick=()=>{const token=session?.token;forget();message('Signed out.');if(token)connection.call('adminLogout',[token]).catch(()=>{});};
+  $('logout').onclick=()=>endSession('Signed out. Press Get code to sign in again.');
   $('refresh').onclick=()=>refresh();$('subscriberSearch').oninput=renderSubscribers;$('reconnect').onclick=()=>{message('Reconnecting…');connection.connect();};
   async function queue(kind,payload={}){
     if(!session||busy)return;buttons(true);message('Submitting action…');
@@ -66,5 +78,6 @@
   document.querySelectorAll('.command').forEach(button=>button.onclick=()=>queue(button.dataset.command));
   $('calendarForm').onsubmit=event=>{event.preventDefault();queue('UPDATE_CALENDAR',{url:$('calendarUrl').value.trim()});};
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&session&&Number(session.expires)<=Date.now()){forget();message('Session expired. Enter your admin code again.');}});
+  for(const type of ['pointerdown','keydown'])document.addEventListener(type,activity,{passive:true});
   connection.connect();
 })();

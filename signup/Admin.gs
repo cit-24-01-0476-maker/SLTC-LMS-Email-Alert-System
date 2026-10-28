@@ -1,27 +1,50 @@
-/* Protected operator API. The six-digit code is NEVER kept in public source.
- * ADMIN_CODE_HASH is HMAC-SHA256('admin-code:'+code, SIGNING_SECRET).
+/* Protected operator API. Email OTP recipient is configured only server-side.
+ * Codes are hashed, single-use, expire in ten minutes and allow five guesses.
  * All private data/actions require a short-lived random session token.
  */
 const AA_COMMAND_HEADERS_=['id','createdAt','kind','payload','status','message','finishedAt'];
 const AA_HEALTH_HEADERS_=['key','value'];
 
-function adminLogin(code) {
+function requestAdminCode() {
   try {return saLocked_(function(){
+    aaInitializeOtp_();
     const p=saProps_(),now=Date.now();
-    if(!p.getProperty('ADMIN_CODE_HASH') && typeof privateAdminBootstrap_==='function')privateAdminBootstrap_();
-    const expected=p.getProperty('ADMIN_CODE_HASH');
-    if(!expected)return {ok:false,message:'Admin setup is not ready yet.',error:'UNAVAILABLE'};
-    let bucket=JSON.parse(p.getProperty('ADMIN_LOGIN_LIMIT')||'{}');
-    if(!bucket.start || now-Number(bucket.start)>=900000)bucket={start:now,count:0};
-    if(Number(bucket.count)>=5)return {ok:false,message:'Too many attempts. Please wait 15 minutes.',error:'THROTTLED'};
-    bucket.count=Number(bucket.count)+1;p.setProperty('ADMIN_LOGIN_LIMIT',JSON.stringify(bucket));
-    if(typeof code!=='string'||!/^\d{6}$/.test(code)||!saEqual_(expected,saHmac_('admin-code:'+code)))
-      return {ok:false,message:'Incorrect admin code.',error:'UNAUTHENTICATED'};
-    p.setProperty('ADMIN_LOGIN_LIMIT',JSON.stringify({start:now,count:0}));
+    let limit=JSON.parse(p.getProperty('ADMIN_OTP_REQUEST_LIMIT')||'{}');
+    if(limit.lastSent&&now-Number(limit.lastSent)<60000)return {ok:false,message:'Please wait one minute before requesting another code.',error:'THROTTLED'};
+    if(!limit.windowStart||now-Number(limit.windowStart)>=3600000)limit={windowStart:now,count:0,lastSent:limit.lastSent||0};
+    if(Number(limit.count)>=6)return {ok:false,message:'Too many code requests. Please try again later.',error:'THROTTLED'};
+    if(MailApp.getRemainingDailyQuota()<=5||!saBudget_('adminOtpMail',20))return {ok:false,message:'The email service cannot send a code right now. Please try again later.',error:'UNAVAILABLE'};
+    limit.count=Number(limit.count||0)+1;limit.lastSent=now;p.setProperty('ADMIN_OTP_REQUEST_LIMIT',JSON.stringify(limit));
+    let value;do{value=parseInt(saHmac_('otp-random:'+Utilities.getUuid()+':'+Utilities.getUuid()).slice(0,8),16);}while(value>=4200000000);
+    const code=String(value%100000000).padStart(8,'0'),id=Utilities.getUuid(),expires=now+600000;
+    p.setProperty('ADMIN_OTP',JSON.stringify({id,hash:saHmac_('admin-otp:'+id+':'+code),expires,attempts:0}));
+    try{MailApp.sendEmail({to:p.getProperty('ADMIN_EMAIL'),name:'SLTC LMS Alerts',subject:'SLTC LMS Alerts | Admin verification code',
+      body:'Your one-time admin verification code is: '+code+'\n\nIt expires in 10 minutes and works once. Enter it only on your SLTC LMS Alerts admin page. If you did not request this, ignore the message. Never share this code.',
+      htmlBody:'<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:30px;color:#073d58"><h2>Admin sign-in verification</h2><p>Enter this one-time code on your admin page.</p><p style="font-size:32px;font-weight:bold;letter-spacing:5px;padding:20px;background:#f1f5f5;border-left:4px solid #d6b36b">'+code+'</p><p>Expires in 10 minutes. It can be used once.</p><p style="font-size:12px;color:#687985">If you did not request this code, ignore this message. Do not share the code.</p></div>'});
+    }catch(_){p.setProperty('ADMIN_OTP','{}');return {ok:false,message:'Unable to send a code right now. Please try again later.',error:'UNAVAILABLE'};}
+    return {ok:true,message:'A verification code was sent to the configured admin inbox. Check Inbox and Spam.',data:{challengeId:id,expires,resendAfter:now+60000}};
+  });}catch(_){return {ok:false,message:'Unable to send a code right now.',error:'UNAVAILABLE'};}
+}
+
+function adminLogin(code,challengeId) {
+  try {return saLocked_(function(){
+    aaInitializeOtp_();const p=saProps_(),now=Date.now();
+    let bucket=JSON.parse(p.getProperty('ADMIN_OTP_VERIFY_LIMIT')||'{}');
+    if(!bucket.start||now-Number(bucket.start)>=900000)bucket={start:now,count:0};
+    if(Number(bucket.count)>=10)return {ok:false,message:'Too many verification attempts. Please wait 15 minutes.',error:'THROTTLED'};
+    bucket.count=Number(bucket.count||0)+1;p.setProperty('ADMIN_OTP_VERIFY_LIMIT',JSON.stringify(bucket));
+    const otp=JSON.parse(p.getProperty('ADMIN_OTP')||'{}');
+    if(!otp.id||otp.id!==challengeId||Number(otp.expires)<=now||!otp.hash)
+      return {ok:false,message:'Invalid or expired code. Request a new code.',error:'UNAUTHENTICATED'};
+    if(Number(otp.attempts)>=5)return {ok:false,message:'This code is locked. Request a new code.',error:'THROTTLED'};
+    otp.attempts=Number(otp.attempts||0)+1;p.setProperty('ADMIN_OTP',JSON.stringify(otp));
+    if(typeof code!=='string'||!/^\d{8}$/.test(code)||!saEqual_(otp.hash,saHmac_('admin-otp:'+challengeId+':'+code)))
+      return {ok:false,message:'Invalid or expired code. Please check the latest email.',error:'UNAUTHENTICATED'};
+    // Consume BEFORE issuing a session; parallel/replayed verification cannot win.
+    p.setProperty('ADMIN_OTP','{}');p.setProperty('ADMIN_OTP_VERIFY_LIMIT',JSON.stringify({start:now,count:0}));
     const token=saHmac_('admin-session:'+Utilities.getUuid()+':'+Utilities.getUuid()+':'+now);
-    const sessions=JSON.parse(p.getProperty('ADMIN_SESSIONS')||'[]').filter(x=>Number(x.expires)>now).slice(-2);
-    const expires=now+1800000;sessions.push({hash:saHash_(token),expires});
-    p.setProperty('ADMIN_SESSIONS',JSON.stringify(sessions));
+    const expires=now+900000;
+    p.setProperty('ADMIN_SESSIONS',JSON.stringify([{hash:saHash_(token),expires,lastSeen:now}]));
     return {ok:true,message:'Signed in.',data:{token,expires}};
   });}catch(_){return {ok:false,message:'Unable to sign in right now.',error:'UNAVAILABLE'};}
 }
@@ -98,7 +121,8 @@ function doPost(e){
     const raw=e?.postData?.contents||'';
     if(raw.length>6500)throw new Error('Invalid');
     const input=JSON.parse(raw);
-    if(input.method==='adminLogin')result=adminLogin(input.code);
+    if(input.method==='requestAdminCode')result=requestAdminCode();
+    else if(input.method==='adminLogin')result=adminLogin(input.code,input.challengeId);
     else if(input.method==='adminState')result=adminState(input.token);
     else if(input.method==='adminCommand')result=adminCommand(input.token,input.kind,input.payload);
     else if(input.method==='adminLogout')result=adminLogout(input.token);
@@ -107,9 +131,18 @@ function doPost(e){
 }
 
 function aaRequire_(token){
+  aaInitializeOtp_();
+  const now=Date.now();
   const hash=typeof token==='string'&&/^[a-f0-9]{64}$/.test(token)?saHash_(token):'';
-  const valid=JSON.parse(saProps_().getProperty('ADMIN_SESSIONS')||'[]').some(s=>Number(s.expires)>Date.now()&&saEqual_(s.hash,hash));
-  if(!valid){const error=new Error('Session expired. Sign in again.');error.auth=true;throw error;}
+  const sessions=JSON.parse(saProps_().getProperty('ADMIN_SESSIONS')||'[]');
+  const valid=sessions.find(s=>Number(s.expires)>now&&now-Number(s.lastSeen||0)<300000&&saEqual_(s.hash,hash));
+  if(!valid){const error=new Error('Session expired. Get a new verification code.');error.auth=true;throw error;}
+  valid.lastSeen=now;saProps_().setProperty('ADMIN_SESSIONS',JSON.stringify(sessions));
+}
+function aaInitializeOtp_(){
+  const p=saProps_();
+  if(p.getProperty('ADMIN_AUTH_MODE')!=='email_otp_v1'&&typeof privateAdminOtpBootstrap_==='function')privateAdminOtpBootstrap_();
+  if(p.getProperty('ADMIN_AUTH_MODE')!=='email_otp_v1'||!/^\S+@\S+\.\S+$/.test(p.getProperty('ADMIN_EMAIL')||''))throw new Error('Admin email verification is not configured.');
 }
 function aaError_(error){return error?.auth?{ok:false,message:'Session expired. Sign in again.',error:'UNAUTHENTICATED'}:{ok:false,message:'Unable to complete this action. Please try again later.',error:'UNAVAILABLE'};}
 function aaSheet_(book,name,headers){let s=book.getSheetByName(name);if(!s){s=book.insertSheet(name);s.appendRow(headers);s.setFrozenRows(1);}if(JSON.stringify(s.getRange(1,1,1,headers.length).getValues()[0])!==JSON.stringify(headers))throw new Error('Schema mismatch');return s;}

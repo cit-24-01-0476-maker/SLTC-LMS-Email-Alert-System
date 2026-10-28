@@ -9,7 +9,7 @@
     if(event.origin!==boot.parentOrigin || event.source!==window.top || !data ||
       data.app!=='sltc-alerts' || data.channel!==boot.channel || data.type!=='request' ||
       !/^[a-f0-9-]{36}$/.test(data.requestId||''))return;
-    const adminMethod=['adminLogin','adminState','adminCommand','adminLogout'].includes(data.method);
+    const adminMethod=['requestAdminCode','adminLogin','adminState','adminCommand','adminLogout'].includes(data.method);
     const reply=result=>{
       const safe={ok:result && result.ok===true,message:typeof result?.message==='string'?result.message.slice(0,600):'Please try again later.'};
       if(adminMethod){if(result?.error)safe.error=String(result.error).slice(0,40);if(result?.ok && result.data)safe.data=result.data;}
@@ -24,7 +24,8 @@
     else if(data.method==='confirmSubscription' && args.length===2)rpc.confirmSubscription(args[0],args[1]);
     else if(data.method==='unsubscribe' && args.length===2)rpc.unsubscribe(args[0],args[1]);
     else if(data.method==='recordVisit' && args.length===2)rpc.recordVisit(args[0],args[1]);
-    else if(data.method==='adminLogin' && args.length===1)rpc.adminLogin(args[0]);
+    else if(data.method==='requestAdminCode' && args.length===0)rpc.requestAdminCode();
+    else if(data.method==='adminLogin' && args.length===2)rpc.adminLogin(args[0],args[1]);
     else if(data.method==='adminState' && args.length===1)rpc.adminState(args[0]);
     else if(data.method==='adminCommand' && args.length===3)rpc.adminCommand(args[0],args[1],args[2]);
     else if(data.method==='adminLogout' && args.length===1)rpc.adminLogout(args[0]);
