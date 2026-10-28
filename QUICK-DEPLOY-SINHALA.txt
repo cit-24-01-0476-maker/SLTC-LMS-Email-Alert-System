@@ -1,0 +1,74 @@
+SLTC LMS ALERTS — ORIGINAL MONITOR එක සමඟ සම්පූර්ණ setup
+
+Files සහ integration ලෑස්තියි. Google authorization / account settings අවශ්‍ය
+නම් organiser විසින් Google page එකේම approve කළ යුතුයි. Password, login
+code, private LMS export URL හෝ signing secret chat/repo එකට දාන්න එපා.
+
+A. Signup project (NEW, public website)
+
+1. signup/Code.gs, signup/Index.html, signup/appsscript.json upload කරන්න.
+2. Google editor එකෙන් setupSignup_ එක වරක් Run කරන්න; Google permissions
+   approve කරන්න. Private subscriber Sheet සහ daily cleanup trigger එක auto
+   හැදෙනවා. Existing Sheet එකක් ඕන නම් පමණක් කලින් Sheet ID configure කරන්න.
+3. Deploy -> Web app -> Execute as Me -> Anyone. /exec URL එක ලැබෙනවා.
+   Own account/domain policy public access ඉඩ දිය යුතුයි.
+4. Project Settings -> Script Properties:
+     SIGNUPS_ENABLED = true
+     CONTACT_EMAIL = organiserගේ publicly displayed contact email
+   WEB_APP_URL අතින් දාන්න අත්‍යවශ්‍ය නැහැ; deployed URL auto-discover වෙනවා.
+5. setupSignup_ විසින් සෑදූ SUBSCRIBERS_SHEET_ID සහ SIGNING_SECRET values
+   Google editor තුළින්ම private monitor properties වලට copy කරන්න.
+   Signing secret screenshots/chat/repo එකට දාන්න එපා.
+
+B. Existing monitor project (PRIVATE)
+
+1. Existing source backup එක රැකගන්න. monitor/LmsMonitor.gs content එකෙන්
+   old Code.gs replace කරන්න. monitor/SubscriberBridge.gs file එක add කරන්න.
+   Old functions දෙවරක් තියෙන්න එපා. මේ project එක public deploy කරන්න එපා.
+2. Existing LMS_ICAL_URL, ALERT_EMAIL, LMS_INITIALIZED, EVT_* properties
+   මකා දමන්න එපා. Existing checkLms 15-minute trigger එකත් තබාගන්න.
+3. New Script Properties:
+     SUBSCRIBERS_SHEET_ID = signup project එකේ same value
+     SIGNING_SECRET = signup project එකේ same private value
+     WEB_APP_URL = signup project's /exec URL
+     SUBSCRIBER_ALERTS_ENABLED = false (setup/test අවසන් වන තුරු)
+     MAIL_RESERVE = 30
+     MAX_SEND_PER_RUN = 40
+4. setupSubscriberBridge_ Run කර new Sheets/Mail permissions approve කරන්න.
+   AlertQueue tab හැදෙනවා. Monitor manifest එකේ explicit oauthScopes තිබේ
+   නම් Sheets, Mail සහ existing fetch/trigger scopes merge කරන්න.
+5. SUBSCRIBER_ALERTS_ENABLED = true කරන්න. checkLms Run කර test කරන්න.
+   Existing title/start/end fingerprints same නිසා calendar එක replay වෙන්නේ
+   නැහැ. New subscribersට future alerts පමණයි ලැබෙන්නේ.
+6. Original ALERT_EMAIL එකට owner mail පරණ විදිහටම යනවා. Owner website
+   එකෙනුත් subscribe කළොත් duplicate copy එකක් ලැබෙන්න පුළුවන්. අවශ්‍ය නම්
+   OWNER_ALERTS_ENABLED=false කර owner direct copies නවත්වන්න; confirmed
+   subscription එකට යන alerts නවතින්නේ නැහැ.
+
+C. අනිවාර්ය test
+
+  • @sltc.ac.lk email + consent -> pending row, confirmation mail.
+  • Link open පමණින් subscribe නොවේ; Confirm subscription ඔබන්න.
+  • New/updated real course event -> original navy/gold mail + campus logo
+    + individual unsubscribe link. Other studentsගේ addresses නොපෙනේ.
+  • Unsubscribe link -> Unsubscribe button -> row deleted; future queue skips.
+  • Queue quota-limited නම් subsequent checkLms run එක resume කරනවා,
+    calendar එකේ changes නැති වුණත්.
+
+D. රැකගත් දේ / සීමා
+
+Original renderer output exact ලෙස regression-test කරලා තියෙනවා. Campus
+logo CID attachment එකත් queue sender එකෙන් යවනවා; logo download fail නම්
+SLTC text fallback එකක් ලැබෙනවා. New/updated detection, Sri Lanka date
+formatting සහ legacy event fingerprints රැකලා තියෙනවා. Private calendar
+fetch redirects reject වෙනවා; token/export event links safe LMS dashboard
+link එකකට හැරෙනවා. Fetch failure errors වල private feed URL print නොවේ.
+
+Checks: 21 signup/security +18 original-monitor integration =39 pass.
+Offline tests real account authorization හෝ email deliverability prove නොකරයි.
+Google quotas සහ Sheet privacy limitations DEPLOY-SINHALA.txt තුළ තියෙනවා.
+Only the shared monitor's courses/events are broadcast; personalised courses
+ලබාගන්නේ නැහැ. මේක official university notification service එකක් නෙවෙයි.
+
+Google setup වරක් සම්පූර්ණ කළ පසු අලුත් students add වෙන හැම වෙලාවෙම
+script settings වෙනස් කරන්න ඕන නැහැ.

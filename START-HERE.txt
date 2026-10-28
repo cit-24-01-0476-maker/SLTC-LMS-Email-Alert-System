@@ -9,16 +9,20 @@ Website එක බලන්න:
 Live signup app එක:
   signup/Code.gs + signup/Index.html + signup/appsscript.json
   Google Apps Script new project එකකට upload කරන්න.
-  Private Google Sheet සහ Script Properties එක වරක් configure කරන්න.
+  setupSignup_ run කළාම private subscriber Sheet එක auto-create වෙනවා.
+  Existing Sheet එකක් භාවිත කරනවා නම් පමණක් SUBSCRIBERS_SHEET_ID කලින් දාන්න.
+  Deploy කළ පසු website URL එකත් ස්වයංක්‍රීයව හඳුනාගන්නවා.
   DEPLOY-SINHALA.txt එකේ සම්පූර්ණ පියවර තියෙනවා.
   Students එකතු වෙන හැම වෙලාවෙම settings වෙනස් කරන්න ඕන නැහැ.
 
 Existing monitor එකට:
-  monitor/SubscriberBridge.gs add කරන්න.
-  monitor/INTEGRATION-EXAMPLE.txt අනුව existing send points connect කරන්න.
-  දැනට තියෙන styled email renderer සහ 15-minute trigger තබාගන්න.
-  Actual old script එක මේ folder එකේ නැති නිසා ඒ exact integration එක
-  තවම සම්බන්ධ කර නැහැ. මේක existing monitor replacement එකක් නෙවෙයි.
+  monitor/LmsMonitor.gs එකෙන් පරණ monitor Code.gs replace කරන්න.
+  monitor/SubscriberBridge.gs අලුත් file එකක් ලෙස add කරන්න.
+  Original navy/gold renderer එක exact ලෙස රැකලා integration කරලා තියෙනවා.
+  Existing Script Properties, EVT_ fingerprints සහ checkLms trigger තබාගන්න.
+  Bridge properties configure කර setupSubscriberBridge_ run කරන්න.
+  SUBSCRIBER_ALERTS_ENABLED=true කර student alerts enable කරන්න.
+  Original monitor එක public web app එකක් ලෙස deploy කරන්න එපා.
 
 Commands (Node.js installed නම්; npm install අවශ්‍ය නැහැ):
   npm test          — offline security / behaviour checks

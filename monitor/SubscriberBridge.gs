@@ -14,7 +14,10 @@ function setupSubscriberBridge_(){
 // Call where the existing monitor would send one rendered alert/digest.
 // eventRevisionKey must be stable across retries and change on relevant updates.
 function enqueueSubscriberAlert_(eventRevisionKey,message){
-  return sbLocked_(function(){
+  return sbLocked_(function(){return sbEnqueueUnlocked_(eventRevisionKey,message);});
+}
+// Caller MUST already hold this project's ScriptLock (used by checkLms).
+function sbEnqueueUnlocked_(eventRevisionKey,message){
     sbConfig_();
     if(typeof eventRevisionKey!=='string' || !eventRevisionKey || eventRevisionKey.length>2000)throw new Error('Invalid alert identity');
     if(!message || typeof message.subject!=='string' || typeof message.body!=='string' || typeof message.htmlBody!=='string')throw new Error('Rendered subject, body and htmlBody required');
@@ -32,14 +35,17 @@ function enqueueSubscriberAlert_(eventRevisionKey,message){
     const literal=v=>/^[=+\-@]/.test(v) ? "'"+v : v;
     s.appendRow([key,Date.now(),literal(message.subject),literal(message.body),literal(message.htmlBody),idsJson,0,ids.length?'pending':'done','',0]);
     SpreadsheetApp.flush();return {queued:true,recipients:ids.length};
-  });
 }
 
 // Call on EVERY scheduled run, including when there are no new LMS events.
 function drainSubscriberQueue_(){
-  return sbLocked_(function(){
+  return sbLocked_(function(){return sbDrainUnlocked_();});
+}
+// Caller MUST already hold this project's ScriptLock (used by checkLms).
+function sbDrainUnlocked_(){
     sbConfig_();const started=Date.now(), s=sbQueue_(), rows=sbRows_(s,SB_HEADERS_.length);
     const result={sent:0,failed:0,expired:0};
+    let logoLoaded=false, logo=null;
     let remaining=Math.max(0,MailApp.getRemainingDailyQuota()-Number(sbProps_().getProperty('MAIL_RESERVE')||30));
     const batch=Number(sbProps_().getProperty('MAX_SEND_PER_RUN')||40);
     for(let j=0;j<rows.length;j++){
@@ -55,11 +61,19 @@ function drainSubscriberQueue_(){
         const token=sbHmac_('unsubscribe:'+recipient[0]+':'+recipient[10]);
         const url=sbProps_().getProperty('WEB_APP_URL')+'?action=unsubscribe&id='+recipient[0]+'&token='+token;
         const footer='<div style="font:12px Arial,sans-serif;color:#667085;padding:20px;text-align:center;border-top:1px solid #e4e7ec">Shared course monitor · not personalised LMS courses.<br><a href="'+sbEscape_(url)+'">Unsubscribe / delete my subscriber record</a></div>';
-        const html=/<\/body\s*>/i.test(r[4]) ? r[4].replace(/<\/body\s*>/i,footer+'</body>') : r[4]+footer;
+        let html=/<\/body\s*>/i.test(r[4]) ? r[4].replace(/<\/body\s*>/i,footer+'</body>') : r[4]+footer;
+        const message={to:recipient[1],subject:r[2],body:r[3]+'\n\nShared monitor alerts. Unsubscribe: '+url,
+          htmlBody:html,name:'SLTC LMS Alert Monitor'};
+        if(html.includes('cid:sltcLogo')){
+          if(!logoLoaded){logo=typeof getCampusLogo==='function' ? getCampusLogo() : null;logoLoaded=true;}
+          if(logo) message.inlineImages={sltcLogo:logo};
+          else message.htmlBody=html.replace(/<img\b[^>]*\bsrc=["']cid:sltcLogo["'][^>]*>/gi,
+            '<div style="font-size:24px;font-weight:bold;color:#DCC389">SLTC</div>');
+        }
+        sbNoSecret_(r[3]);sbNoSecret_(r[4]);
         r[8]=Date.now();
         try{
-          MailApp.sendEmail({to:recipient[1],subject:r[2],body:r[3]+'\n\nShared monitor alerts. Unsubscribe: '+url,
-            htmlBody:html,name:'SLTC LMS Alerts'});
+          MailApp.sendEmail(message);
         }catch(_){
           r[9]=Number(r[9])+1;if(Number(r[9])>=5)r[7]='failed';
           sbSave_(s,j,r);result.failed++;
@@ -74,7 +88,6 @@ function drainSubscriberQueue_(){
     // Retain job IDs for 30 days for deduplication; keep unresolved jobs for inspection.
     for(let i=rows.length-1;i>=0;i--)if(rows[i][7]==='done' && Date.now()-Number(rows[i][1])>30*86400000)s.deleteRow(i+2);
     return result;
-  });
 }
 
 function sbProps_(){return PropertiesService.getScriptProperties();}
@@ -93,6 +106,10 @@ function sbEscape_(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'
 function sbNoSecret_(text){
   let value=text;for(let i=0;i<2;i++){try{value=decodeURIComponent(value);}catch(_){break;}}
   const secret=sbProps_().getProperty('LMS_AUTHTOKEN');
-  if((secret && value.includes(secret)) || /(?:authtoken|wstoken|access_token)\s*(?:=|&#0*61;|&equals;|:)/i.test(value) || /calendar\/export_execute\.php/i.test(value))
+  const privateUrl=sbProps_().getProperty('LMS_ICAL_URL')||'';
+  const tokenValues=Array.from(privateUrl.matchAll(/[?&](?:authtoken|wstoken|access_token|token)=([^&#]+)/gi),m=>{
+    try{return decodeURIComponent(m[1]);}catch(_){return m[1];}
+  });
+  if((secret && value.includes(secret)) || (privateUrl && value.includes(privateUrl)) || tokenValues.some(t=>t.length>=8 && value.includes(t)) || /(?:authtoken|wstoken|access_token)\s*(?:=|&#0*61;|&equals;|:)/i.test(value) || /calendar\/export_execute\.php/i.test(value))
     throw new Error('Private calendar URL/token detected. Render safe LMS course links instead.');
 }

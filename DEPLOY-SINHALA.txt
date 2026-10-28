@@ -26,12 +26,11 @@ Google limits ඇතුළත පාවිච්චි කරන්න. CAPTCHA 
 Turnstile account එකක් භාවිත කළ හැකියි. Large-scale email service එකක්
 unlimited free කියලා මෙයින් සහතික කරන්නේ නැහැ.
 
-වැදගත්: referenced chat එකේ actual Apps Script code / styled email HTML
-ලබාගන්න බැරි වුණා; returned text එකේ content-reference markers පමණයි.
-ඒ නිසා original fetch/parser/renderer නැවත හදා ඇති බව කියන්නේ නැහැ.
-signup app එක සම්පූර්ණයි. Monitor සඳහා bridge code + adaptation example
-තියෙනවා. ඔබේ actual variable names / send points වලට ඒ calls සම්බන්ධ
-කළ යුතුයි. දැනට තියෙන script එක replace කරන්න එපා.
+UPDATE: Original v2.0 monitor code එක userගෙන් ලැබී දැන් සම්පූර්ණයෙන්
+integrate කර තිබෙනවා. monitor/LmsMonitor.gs එකෙන් old Code.gs replace කර,
+SubscriberBridge.gs add කරන්න. Original renderer එක exact ලෙස රැකලා
+තියෙනවා. Existing properties/fingerprints/checkLms trigger තබාගන්න.
+නව ලේසි setup පියවර QUICK-DEPLOY-SINHALA.txt තුළ තියෙනවා.
 
 Files:
   signup/Code.gs             — complete public signup backend
@@ -63,7 +62,7 @@ Files:
    Existing monitor manifest එකට මේ manifest එක replace කරන්න එපා.
 5) Project Settings -> Script Properties එකේ පහත properties දාන්න:
 
-   SUBSCRIBERS_SHEET_ID = ඉහත private spreadsheet ID
+   SUBSCRIBERS_SHEET_ID = existing Sheet ID (optional; setupSignup_ auto-creates one if omitted)
    CONTACT_EMAIL       = organiserගේ contact email (publicly shown)
    SIGNUPS_ENABLED     = false
    MAX_SUBSCRIBERS     = 200
@@ -91,7 +90,7 @@ Files:
    සමඟ විසඳන්න; මේ code එකෙන් ඒ policy එක bypass කරන්න බැහැ.
 4) Deploy -> /exec වලින් අවසන් වන URL එක copy කරන්න.
 5) Signup Script Properties:
-   WEB_APP_URL = https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+   WEB_APP_URL = https://script.google.com/macros/s/DEPLOYMENT_ID/exec (optional override; auto-discovered if omitted)
 6) SIGNUPS_ENABLED = true කරන්න, පහත acceptance tests සමඟ පරීක්ෂා කරන්න.
    /dev URL එක studentsට දෙන්න එපා; ඒක editors-only test endpoint එකයි.
 7) Code වෙනස් කළොත් Deploy -> Manage deployments -> Edit -> New version
@@ -107,55 +106,24 @@ forward කිරීම හෝ public paste කිරීම නොකරන්�
 
 05. Existing monitor එකට connect කරන්න
 
-1) Existing PRIVATE monitor project එකට SubscriberBridge.gs new script
-   file එකක් ලෙස දාන්න. Signup/Code.gs හෝ Index මෙයට දාන්න එපා.
-   Original monitor project එක public web app එකක් ලෙස deploy කරන්න එපා.
-   හේතුව: old top-level functions google.script.run හරහා expose වෙන්න
-   පුළුවන්. Separate project එක LMS token සහ old functions isolate කරනවා.
-2) Monitor Script Properties එකට මෙවා දාන්න:
+QUICK-DEPLOY-SINHALA.txt හි B කොටස අනුගමනය කරන්න. monitor/LmsMonitor.gs
+දැන් actual supplied script එක සමඟ සම්පූර්ණයෙන් integrate කර තිබෙනවා.
+පරණ generic integration example එක වෙනුවට එම completed file එක භාවිත
+කරන්න. Existing LMS_ICAL_URL සහ ALERT_EMAIL මකා දමන්න එපා.
 
-   SUBSCRIBERS_SHEET_ID = signup එකේ same Sheet ID
-   WEB_APP_URL         = signup එකේ same /exec URL
-   SIGNING_SECRET      = signup එකේ exact same private secret
-   MAIL_RESERVE        = 30
-   MAX_SEND_PER_RUN    = 40
-   LMS_AUTHTOKEN       = current PRIVATE LMS calendar token (monitor only)
+Old Code.gs replace කරන්න; same functions දෙවරක් තියෙන්න එපා. Existing
+private monitor එකට SubscriberBridge.gs add කර Sheet ID, signing secret,
+signup /exec URL configure කරන්න. setupSubscriberBridge_ Run කර new
+permissions authorize කළ පසු SUBSCRIBER_ALERTS_ENABLED=true කරන්න.
+Existing checkLms trigger එක නැවත හදන්න අවශ්‍ය නැහැ. Queue එක එම lock
+එක යටතේම run වෙන නිසා nested lock acquisition වෙන්නේ නැහැ.
 
-   LMS_AUTHTOKEN signup project එකට හෝ HTML එකට දාන්න එපා.
-   Original fetch එක hard-coded token භාවිත කරනවා නම් server-side
-   PropertiesService.getScriptProperties().getProperty('LMS_AUTHTOKEN')
-   කියවන්න වෙනස් කරන්න. Original URL parameter spelling preserve කරන්න.
-   Full private calendar URL එකත් secret එකක් ලෙස තබන්න.
-3) Monitor editor එකෙන් setupSubscriberBridge_ run කර authorize කරන්න.
-   Existing explicit oauthScopes තිබේ නම් Sheets සහ Mail scopes merge
-   කරන්න; existing fetch/Gmail/other scopes මකා දමන්න එපා. Bridge එකට:
-     https://www.googleapis.com/auth/spreadsheets
-     https://www.googleapis.com/auth/script.send_mail
-4) monitor/INTEGRATION-EXAMPLE.txt අනුව existing handler එකට calls එකතු
-   කරන්න. Styled HTML එක existing renderer එකෙන්ම pass කරන්න:
-     enqueueSubscriberAlert_(stableEventRevisionKey, {
-       subject: originalSubject,
-       body: originalPlainText,
-       htmlBody: originalStyledHtml
-     });
-5) Seen/event state mark කිරීමට පෙර enqueue success විය යුතුයි. Queue
-   error එක catch කර ignore කරලා seen mark කළොත් alerts නැති වෙන්න පුළුවන්.
-   Poll run එකක් වෙනස් වෙලා නැතත් drainSubscriberQueue_ run වෙන්න ඕන.
-6) Existing 15-minute trigger delete/recreate කරන්න එපා. Same handler
-   නම සහ timing තබන්න. No duplicate trigger. මේ bridge එක trigger හදන්නේ
-   නැහැ. Existing handler lock එකක් තිබේ නම් integration example එකේ
-   non-reentrant lock note කියවා locking එක සම්බන්ධ කරන්න.
-7) Ownerගේ original notification අවශ්‍ය නම් තබන්න. Old hard-coded student
-   To/CC/BCC list ඉවත් කරන්න. නැත්නම් unsubscribe කළ අයටත් old path එකෙන්
-   mail යාවි. Students auto-import / auto-confirm කරන්න එපා; opt-in ඕන.
-
-Existing subject/body/HTML, logo, colours සහ event detection logic bridge
-එක නැවත හදන්නේ නැහැ. ඒ rendered content එකේ unsubscribe footer එකක්
-පමණක් එක් කරනවා. Existing logo URL public-safe HTTPS URL එකක්ද බලන්න.
-ICS contents කියන්නේ untrusted input: title/description HTML-escape කරන්න.
-Normal LMS course/activity URLs භාවිත කරන්න; authtoken තියෙන export
-link එක studentsට යවන්න එපා. Bridge එක common token/export leaks block
-කරනවා; arbitrary obfuscation හඳුනාගන්න DLP system එකක් නෙවෙයි.
+Original owner mail default ලෙස තබාගන්නවා. Ownerත් website එකෙන් subscribe
+කළොත් copy දෙකක් ලැබිය හැකියි; OWNER_ALERTS_ENABLED=false කර direct owner
+copy එක නවත්වන්න පුළුවන්. Studentsට hard-coded To/CC/BCC list එකක් දාන්න
+එපා. New/updated event changes විශාල නම් styled digests කුඩා batches වලට
+split කරනවා. SUB_EVT_* properties queue commit state රකිනවා; owner mail
+fail වුණත් studentsට same revision නැවත යවන්නේ නැහැ.
 
 06. Spam controls සහ optional CAPTCHA
 
@@ -264,8 +232,8 @@ subscriber records/queue as appropriate and archive public deployment.
 
 09. Token/security rotation
 
-LMS_AUTHTOKEN is DIFFERENT from SIGNING_SECRET and confirmation link tokens.
-  • LMS_AUTHTOKEN: private LMS calendar access; monitor project only.
+LMS_ICAL_URL (private calendar URL + token) is DIFFERENT from SIGNING_SECRET.
+  • LMS_ICAL_URL: private LMS calendar URL; monitor project only.
   • SIGNING_SECRET: HMAC signing key shared by these TWO private projects.
   • Email link tokens: limited verification/unsubscribe capabilities.
 
@@ -328,7 +296,7 @@ separate; change it in Cloudflare and signup properties, then test.
 
 Offline verification included:
   node tests/security.test.cjs
-19 checks passed when built; JavaScript server/client syntax parses. Mocks
+39 checks passed when built; JavaScript server/client syntax parses. Mocks
 exercise domain restrictions, consent/honeypot/form age, token expiry/tamper/
 replay, pending exclusion, cooldown, deduplication, quota deferral, individual
 styled mail, unsubscribe deletion/recheck, leak guards, retry, daily mail cap,

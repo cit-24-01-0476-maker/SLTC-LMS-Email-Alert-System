@@ -80,8 +80,12 @@ function unsubscribe(id, token) {
 
 // Run from the Apps Script editor only; the trailing underscore blocks web RPC.
 function setupSignup_() {
+  return saLocked_(function() {
   const p=saProps_();
-  if(!p.getProperty('SUBSCRIBERS_SHEET_ID')) throw new Error('Set SUBSCRIBERS_SHEET_ID first.');
+  if(!p.getProperty('SUBSCRIBERS_SHEET_ID')) {
+    const created=SpreadsheetApp.create('SLTC LMS Alert Subscribers');
+    p.setProperty('SUBSCRIBERS_SHEET_ID',created.getId());
+  }
   if(!p.getProperty('SIGNING_SECRET')) p.setProperty('SIGNING_SECRET',Utilities.getUuid()+Utilities.getUuid()+Utilities.getUuid());
   if(!p.getProperty('SIGNUPS_ENABLED')) p.setProperty('SIGNUPS_ENABLED','false');
   const book=SpreadsheetApp.openById(p.getProperty('SUBSCRIBERS_SHEET_ID'));
@@ -90,6 +94,9 @@ function setupSignup_() {
   saSheet_();
   if(!ScriptApp.getProjectTriggers().some(t=>t.getHandlerFunction()==='cleanupPending_'))
     ScriptApp.newTrigger('cleanupPending_').timeBased().everyDays(1).create();
+  return {ok:true, spreadsheetId:p.getProperty('SUBSCRIBERS_SHEET_ID'),
+    signupsEnabled:p.getProperty('SIGNUPS_ENABLED')==='true'};
+  });
 }
 
 function cleanupPending_() {
@@ -106,7 +113,7 @@ function saSheet_(){
 function saRows_(s){return s.getLastRow()<2 ? [] : s.getRange(2,1,s.getLastRow()-1,SA_HEADERS_.length).getValues();}
 function saLocked_(f){const l=LockService.getScriptLock();l.waitLock(15000);try{return f();}finally{l.releaseLock();}}
 function saEmail_(email){return typeof email==='string' && email.length<=180 && /^[a-z0-9][a-z0-9._+-]{0,63}@sltc\.ac\.lk$/i.test(email.trim());}
-function saUrl_(){const u=saProps_().getProperty('WEB_APP_URL') || '';if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) throw new Error('Configure WEB_APP_URL');return u;}
+function saUrl_(){const u=saProps_().getProperty('WEB_APP_URL') || ScriptApp.getService().getUrl() || '';if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u)) throw new Error('Deploy the web app or configure WEB_APP_URL');return u;}
 function saDay_(){return Utilities.formatDate(new Date(),'Asia/Colombo','yyyy-MM-dd');}
 function saBudget_(kind,limit){
   const p=saProps_(), key='BUDGET_'+kind, raw=p.getProperty(key);

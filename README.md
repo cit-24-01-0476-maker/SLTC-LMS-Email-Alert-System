@@ -9,7 +9,7 @@ Voluntary university email signup for a shared SLTC LMS calendar monitor, using 
 1. Website design එක බලන්න `index.html` browser එකෙන් open කරන්න.
 2. [START-HERE.txt](START-HERE.txt) කියවන්න.
 3. [සිංහල deployment guide](DEPLOY-SINHALA.txt) අනුව private Sheet සහ Google Apps Script project එක configure කර deploy කරන්න.
-4. [Monitor integration example](monitor/INTEGRATION-EXAMPLE.txt) අනුව existing private LMS monitor එක සම්බන්ධ කරන්න.
+4. `monitor/LmsMonitor.gs` එකෙන් පරණ monitor Code.gs replace කර `monitor/SubscriberBridge.gs` add කරන්න. Existing Script Properties සහ `checkLms` trigger එක තබාගන්න.
 
 Students confirm their `@sltc.ac.lk` email before activation. Confirmed subscribers are read automatically from the Sheet; the organiser does not edit script settings for every signup.
 
@@ -33,12 +33,13 @@ Students confirm their `@sltc.ac.lk` email before activation. Confirmed subscrib
 | `signup/Index.html` | Production HTMLService UI |
 | `signup/appsscript.json` | New signup project's manifest |
 | `monitor/SubscriberBridge.gs` | Adapter for the existing private monitor |
+| `monitor/LmsMonitor.gs` | Complete integrated version of the supplied v2.0 monitor |
 | `monitor/INTEGRATION-EXAMPLE.txt` | Instructions for preserving the current renderer and schedule |
 | `DEPLOY-SINHALA.txt` | Deployment, quotas, privacy, security rotation and acceptance tests |
 | `index.html` | Generated local UI preview; not a production backend |
 | `tests/security.test.cjs` | Offline service simulation and security checks |
 
-The original monitor source/template was unavailable. Connect the adapter to the actual monitor's alert send points; do not replace the original fetch/parser, renderer or 15-minute trigger with this package.
+The user's original v2.0 monitor is now integrated. Its navy/gold HTML renderer is preserved exactly, including inline campus logo, event cards and owner-only preview. Existing `EVT_` fingerprints, `LMS_INITIALIZED`, `LMS_ICAL_URL`, `ALERT_EMAIL` and `checkLms` trigger are retained. Subscriber sends are enabled with `SUBSCRIBER_ALERTS_ENABLED=true` after bridge configuration. The calendar fetch rejects redirects and event links are filtered to keep private calendar tokens out of mail.
 
 ## Local checks
 
@@ -49,7 +50,7 @@ npm test
 npm run build
 ```
 
-Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 19 checks. Real Google deployment, mail delivery and optional Turnstile iframe compatibility need the acceptance tests in the deployment guide.
+Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 39 checks, including the integrated original monitor and an exact original-renderer output regression check. Real Google deployment, mail delivery and optional Turnstile iframe compatibility need the acceptance tests in the deployment guide.
 
 ## Deployment and security
 

@@ -43,6 +43,18 @@ check('Send failure retains cursor and retry succeeds',()=>{ctx.enqueueSubscribe
 check('Daily verification budget cannot be exceeded',()=>{for(let i=0;i<30;i++)signup('test'+i+'@sltc.ac.lk');assert.equal(JSON.parse(props.BUDGET_verificationMail).count,20);});
 check('CAPTCHA configuration fails closed without valid proof',()=>{props.TURNSTILE_SITE_KEY='site';assert.equal(ctx.saCaptcha_(''),false);delete props.TURNSTILE_SITE_KEY;});
 check('Only intended signup RPCs are public; monitor helpers are private',()=>{const signupSource=fs.readFileSync(path.join(base,'signup/Code.gs'),'utf8');const publicNames=[...signupSource.matchAll(/^function (\w+)\(/gm)].map(x=>x[1]).filter(x=>!x.endsWith('_'));assert.deepEqual(publicNames,['doGet','requestSignup','confirmSubscription','unsubscribe']);const bridge=fs.readFileSync(path.join(base,'monitor/SubscriberBridge.gs'),'utf8');assert([...bridge.matchAll(/^function (\w+)\(/gm)].every(x=>x[1].endsWith('_')));});
+check('First-time setup creates a sheet once and reruns preserve records and signing key',()=>{
+  const oldId=props.SUBSCRIBERS_SHEET_ID, oldSecret=props.SIGNING_SECRET, before=sheets.Subscribers.data.length;
+  let created=0;ctx.SpreadsheetApp.create=()=>{created++;return {getId:()=> 'auto-created-sheet'};};
+  delete props.SUBSCRIBERS_SHEET_ID;assert(ctx.setupSignup_().ok);assert(ctx.setupSignup_().ok);
+  assert.equal(created,1);assert.equal(props.SUBSCRIBERS_SHEET_ID,'auto-created-sheet');
+  assert.equal(props.SIGNING_SECRET,oldSecret);assert.equal(sheets.Subscribers.data.length,before);props.SUBSCRIBERS_SHEET_ID=oldId;
+});
+check('Deployed URL is discovered automatically but invalid URLs fail closed',()=>{
+  const oldUrl=props.WEB_APP_URL;ctx.ScriptApp.getService=()=>({getUrl:()=>oldUrl});
+  delete props.WEB_APP_URL;assert.equal(ctx.saUrl_(),oldUrl);
+  props.WEB_APP_URL='https://untrusted.example/exec';assert.throws(()=>ctx.saUrl_());props.WEB_APP_URL=oldUrl;
+});
 for(const file of ['signup/Code.gs','monitor/SubscriberBridge.gs'])new vm.Script(fs.readFileSync(path.join(base,file),'utf8'),{filename:file});
 const html=fs.readFileSync(path.join(base,'signup/Index.html'),'utf8');new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1].replace('<?!= boot ?>',Buffer.from('{}').toString('base64')));
 console.log(`${checks} checks passed. Server and client JavaScript parse successfully. Live deployment and mail delivery still require acceptance testing.`);
