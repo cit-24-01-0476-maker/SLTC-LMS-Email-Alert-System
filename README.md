@@ -2,7 +2,7 @@
 
 Voluntary university email signup for a shared SLTC LMS calendar monitor, using Google Apps Script HTMLService and a private Google Sheet.
 
-**Live signup:** [Open SLTC LMS Alerts](https://script.google.com/macros/s/AKfycbyZaJHwT6kUOyJO0_e7n5_UDY5yw85-0HlzoO7duriqKBAbkc3HMRQCOmqhOHnPIN0h/exec). The production app is deployed on Google Apps Script and connected to the private monitor. The root `index.html` remains a local demonstration that never sends or saves email.
+**Live signup:** [Open SLTC LMS Alerts](https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/). The mobile-friendly website is hosted on GitHub Pages. Google Apps Script handles confirmation emails and the private subscriber Sheet; the existing private monitor keeps its schedule.
 
 ## මේක පටන් ගන්නේ කොහොමද?
 
@@ -39,7 +39,9 @@ Students confirm their `@sltc.ac.lk` email before activation. Confirmed subscrib
 | `monitor/LmsMonitor.gs` | Complete integrated version of the supplied v2.0 monitor |
 | `monitor/INTEGRATION-EXAMPLE.txt` | Instructions for preserving the current renderer and schedule |
 | `DEPLOY-SINHALA.txt` | Deployment, quotas, privacy, security rotation and acceptance tests |
-| `index.html` | Generated local UI preview; not a production backend |
+| `index.html` | Production GitHub Pages UI |
+| `assets/app.js` | Secure cross-origin connection to the email backend |
+| `signup/Bridge.html` | Origin-checked Google transport for the static site |
 | `tests/security.test.cjs` | Offline service simulation and security checks |
 
 The user's original v2.0 monitor is now integrated. Its navy/gold HTML renderer is preserved exactly, including inline campus logo, event cards and owner-only preview. Existing `EVT_` fingerprints, `LMS_INITIALIZED`, `LMS_ICAL_URL`, `ALERT_EMAIL` and `checkLms` trigger are retained. Subscriber sends are enabled with `SUBSCRIBER_ALERTS_ENABLED=true` after bridge configuration. The calendar fetch rejects redirects and event links are filtered to keep private calendar tokens out of mail.
@@ -53,14 +55,20 @@ npm test
 npm run build
 ```
 
-Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 41 checks, including the integrated original monitor and an exact original-renderer output regression check. The production signup page was verified accessible without login (HTTP 200), and both setup steps completed. A real student-mailbox confirmation/alert delivery test and optional Turnstile iframe compatibility still require the acceptance tests in the deployment guide.
+Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 48 checks, including the integrated original monitor and an exact original-renderer output regression check. The production signup page was verified accessible without login (HTTP 200), and both setup steps completed. A real student-mailbox confirmation/alert delivery test and optional Turnstile iframe compatibility still require the acceptance tests in the deployment guide.
 
 ## Deployment and security
 
-Host the production signup app on **Google Apps Script**, with subscribers in a **restricted private Google Sheet**. GitHub Pages or Vercel are not needed for this architecture and cannot run these `.gs` files as an Apps Script backend.
+Host the frontend on **GitHub Pages**, with the email backend on **Google Apps Script** and subscribers in a **restricted private Google Sheet**. GitHub does not run the `.gs` files. The browser connects through an origin-checked Google iframe; supported browsers load it without Google cookies to avoid multi-account conflicts. Confirmation and unsubscribe links point to the GitHub site using a URL fragment. Old Google links continue to work.
 
 Keep the public signup project separate from the private LMS monitor. Store the LMS calendar token only in the monitor's Script Properties. Store signing/CAPTCHA secrets in Script Properties, never in this repository or preview. Do not commit real subscriber data, private calendar URLs, `.env`, or Google login credentials.
 
 Email sending is subject to the sender account's [Google Apps Script quotas](https://developers.google.com/apps-script/guides/services/quotas). This is not an unlimited email service. Follow the deployment guide before sharing a live signup URL.
 
 The completed production bootstrap helpers were removed. Signing keys are held in Script Properties, not in the deployed source or repository. The monitor has no public web endpoint.
+
+## GitHub Pages hosting
+
+Pages publishes the `main` branch at `/`; `.nojekyll` serves the static files directly. Run `npm run build` after layout/client changes and commit `index.html` plus `assets/app.js`. Never publish `work/`, credentials or private deployment helpers. Backend template changes require a separate Apps Script push and update of the existing deployment.
+
+The bridge permits only `requestSignup`, `confirmSubscription` and `unsubscribe`. Both sides check the origin, per-page random channel and request identity. No request result is shown as successful until the matching backend response arrives. If connection fails, the page offers retry/private-window help. Real browser handshake and mailbox delivery need live acceptance testing.

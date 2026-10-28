@@ -1,3 +1,10 @@
+GITHUB PAGES UPDATE
+Live website: https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/
+Website UI GitHub Pages මතත්, email verification/subscriber data Google මතත් run වෙනවා.
+signup/Bridge.html එකත් Apps Script project එකට upload කරන්න.
+GitHub username/repo වෙනස් කරනවා නම් Code.gs, SubscriberBridge.gs සහ assets/app.js
+තුළ public URL/origin constants එකම values වලට වෙනස් කරන්න.
+
 SLTC LMS ALERTS — ORIGINAL MONITOR එක සමඟ සම්පූර්ණ setup
 
 Files සහ integration ලෑස්තියි. Google authorization / account settings අවශ්‍ය
@@ -66,7 +73,7 @@ formatting සහ legacy event fingerprints රැකලා තියෙනව�
 fetch redirects reject වෙනවා; token/export event links safe LMS dashboard
 link එකකට හැරෙනවා. Fetch failure errors වල private feed URL print නොවේ.
 
-Checks: 23 signup/security +18 original-monitor integration =41 pass.
+Checks: 23 signup/security +18 monitor +7 Pages transport =48 pass.
 Offline tests real account authorization හෝ email deliverability prove නොකරයි.
 Google quotas සහ Sheet privacy limitations DEPLOY-SINHALA.txt තුළ තියෙනවා.
 Only the shared monitor's courses/events are broadcast; personalised courses

@@ -20,7 +20,7 @@ ctx.setupSignup_();ctx.setupSubscriberBridge_();
 let checks=0;function check(name,f){f();checks++;console.log('PASS',name);}
 function challenge(){const payload=(Date.now()-3000)+':'+crypto.randomUUID();return payload+':'+ctx.saHmac_('form:'+payload);}
 function signup(email,extra={}){return ctx.requestSignup({email,consent:true,website:'',challenge:challenge(),...extra});}
-function link(mail){const u=mail.body.match(/https:\/\/script\.google\.com\/[^\s]+/)[0];return Object.fromEntries(new URL(u).searchParams);}
+function link(mail){const u=new URL(mail.body.match(/https:\/\/[^\s]+/)[0]);return Object.fromEntries(new URLSearchParams(u.hash ? u.hash.slice(1) : u.search));}
 check('Exact university domain and formula/header injection rejected',()=>{for(const e of ['a@example.com','a@sltc.ac.lk.evil','a@sub.sltc.ac.lk','=x@sltc.ac.lk','a@sltc.ac.lk\r\nBcc:b@sltc.ac.lk'])assert(!ctx.saEmail_(e));assert(ctx.saEmail_('Student+alerts@SLTC.ac.lk'));});
 check('Consent, honeypot, invalid and too-fresh form proof stop mail',()=>{signup('a@sltc.ac.lk',{consent:false});signup('a@sltc.ac.lk',{website:'spam'});signup('a@sltc.ac.lk',{challenge:'bad'});signup('a@sltc.ac.lk',{challenge:ctx.saChallenge_()});assert.equal(sent.length,0);});
 let a,b;

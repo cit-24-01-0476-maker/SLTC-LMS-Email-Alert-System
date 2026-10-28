@@ -4,7 +4,8 @@
   "private": true,
   "description": "Voluntary SLTC shared LMS alerts signup using Google Apps Script and private Google Sheets",
   "scripts": {
-    "test": "node tests/security.test.cjs && node tests/monitor.test.cjs",
-    "build": "node tools/build-preview.cjs"
+    "test": "node tools/build-pages.cjs && node tests/security.test.cjs && node tests/monitor.test.cjs && node tests/pages.test.cjs",
+    "build": "node tools/build-pages.cjs",
+    "preview": "node tools/build-preview.cjs"
   }
 }

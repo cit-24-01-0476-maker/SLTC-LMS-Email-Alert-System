@@ -1,9 +1,12 @@
 /* Separate PUBLIC signup project. Never put your LMS token or old monitor here. */
 const SA_HEADERS_ = ['id','email','status','verifyHash','verifyExpires','createdAt','confirmedAt','lastRequest','requestDay','requestCount','unsubscribeNonce','consentVersion'];
 const SA_CONSENT_ = 'shared-monitor-2026-10-v1';
+const SA_PAGES_URL_ = 'https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/';
+const SA_PAGES_ORIGIN_ = 'https://cit-24-01-0476-maker.github.io';
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  if (p.mode === 'bridge') return saBridge_(p);
   const t = HtmlService.createTemplateFromFile('Index');
   const boot = { action: /^(confirm|unsubscribe)$/.test(p.action || '') ? p.action : '',
     id: /^[a-f0-9-]{36}$/.test(p.id || '') ? p.id : '',
@@ -42,7 +45,7 @@ function requestSignup(input) {
       // Persist before sending: a failure may require waiting for the cooldown.
       sheet.getRange(found < 0 ? sheet.getLastRow()+1 : found+2,1,1,SA_HEADERS_.length).setValues([row]);
       SpreadsheetApp.flush();
-      const url = saUrl_()+'?action=confirm&id='+id+'&token='+token;
+      const url = SA_PAGES_URL_+'#action=confirm&id='+id+'&token='+token;
       MailApp.sendEmail({to:email,subject:'Confirm your SLTC LMS Alerts signup',name:'SLTC LMS Alerts',
         body:'You requested shared course calendar alerts. Open this link, then press Confirm subscription:\n'+url+'\nExpires in 30 minutes. If you did not request this, ignore it; you are not subscribed.',
         htmlBody:'<div style="font-family:Arial;max-width:560px;padding:28px;background:#f3f6fb;color:#14243b"><h1>One last step.</h1><p>Receive calendar alerts from the shared SLTC LMS monitor. These are not your personalised courses.</p><p><a href="'+saEscape_(url)+'" style="display:inline-block;background:#2158d6;color:white;padding:14px 22px;border-radius:8px">Review &amp; confirm</a></p><p>Expires in 30 minutes. Only press Confirm subscription if you requested this. Otherwise ignore this email; no subscription is active.</p></div>'});
@@ -105,6 +108,20 @@ function cleanupPending_() {
   });
 }
 function saProps_(){return PropertiesService.getScriptProperties();}
+// Cross-origin transport for the GitHub-hosted UI. Only public student actions
+// are exposed, with exact parent-origin and per-page channel checks in Bridge.
+function saBridge_(p){
+  if(p.parentOrigin!==SA_PAGES_ORIGIN_ || !/^[a-f0-9]{64}$/.test(p.channel||''))
+    return HtmlService.createHtmlOutput('Invalid signup connection.');
+  const t=HtmlService.createTemplateFromFile('Bridge');
+  const boot={parentOrigin:SA_PAGES_ORIGIN_,channel:p.channel,challenge:saChallenge_(),
+    siteKey:saProps_().getProperty('TURNSTILE_SITE_KEY')||'',
+    contact:saProps_().getProperty('CONTACT_EMAIL')||'Reply to a confirmation email to contact the organiser.',
+    enabled:saProps_().getProperty('SIGNUPS_ENABLED')==='true'};
+  t.boot=Utilities.base64Encode(JSON.stringify(boot),Utilities.Charset.UTF_8);
+  return t.evaluate().setTitle('SLTC secure email connection')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
 function saSheet_(){
   const s=SpreadsheetApp.openById(saProps_().getProperty('SUBSCRIBERS_SHEET_ID')).getSheetByName('Subscribers');
   if(!s || JSON.stringify(s.getRange(1,1,1,SA_HEADERS_.length).getValues()[0])!==JSON.stringify(SA_HEADERS_)) throw new Error('Schema mismatch');

@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="referrer" content="no-referrer"></head><body>
+<script>
+(() => {
+  'use strict';
+  const boot=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob('<?!= boot ?>'),c=>c.charCodeAt(0))));
+  const send=data=>window.top.postMessage(Object.assign({app:'sltc-alerts',channel:boot.channel},data),boot.parentOrigin);
+  window.addEventListener('message',event=>{
+    const data=event.data;
+    if(event.origin!==boot.parentOrigin || event.source!==window.top || !data ||
+      data.app!=='sltc-alerts' || data.channel!==boot.channel || data.type!=='request' ||
+      !/^[a-f0-9-]{36}$/.test(data.requestId||''))return;
+    const reply=result=>send({type:'response',requestId:data.requestId,result:{ok:result && result.ok===true,
+      message:typeof result?.message==='string' ? result.message.slice(0,600) : 'Please try again later.'}});
+    const fail=()=>reply({ok:false,message:'The email service could not complete this request. Please try again later.'});
+    const rpc=google.script.run.withSuccessHandler(reply).withFailureHandler(fail);
+    const args=data.args;
+    if(!Array.isArray(args) || JSON.stringify(args).length>6000)return fail();
+    // Explicit whitelist: never dispatch arbitrary server/admin function names.
+    if(data.method==='requestSignup' && args.length===1)rpc.requestSignup(args[0]);
+    else if(data.method==='confirmSubscription' && args.length===2)rpc.confirmSubscription(args[0],args[1]);
+    else if(data.method==='unsubscribe' && args.length===2)rpc.unsubscribe(args[0],args[1]);
+    else fail();
+  });
+  send({type:'ready',config:{challenge:boot.challenge,siteKey:boot.siteKey,contact:boot.contact,enabled:boot.enabled}});
+})();
+</script></body></html>

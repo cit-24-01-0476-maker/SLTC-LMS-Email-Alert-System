@@ -26,5 +26,5 @@ html = html.replace('<?!= boot ?>', boot)
   .replace('<script>', previewAdapter + '\n<script>');
 for (const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(match[1]);
 if (html.includes('<?')) throw new Error('Unresolved Apps Script template tag');
-fs.writeFileSync(path.join(root, 'index.html'), html, 'utf8');
-console.log('Created index.html local preview. No live email service is connected.');
+fs.writeFileSync(path.join(root, 'preview.html'), html, 'utf8');
+console.log('Created preview.html local demo. No live email service is connected.');

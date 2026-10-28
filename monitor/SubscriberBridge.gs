@@ -3,6 +3,7 @@
  * Never deploy that private monitor as a public web app.
  */
 const SB_HEADERS_=['jobId','createdAt','subject','body','htmlBody','subscriberIds','cursor','status','lastAttempt','failures'];
+const SB_PAGES_URL_='https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/';
 
 // Run once from the editor after adding the properties described in README.
 function setupSubscriberBridge_(){
@@ -59,7 +60,7 @@ function sbDrainUnlocked_(){
         const recipient=sbSubscribers_().find(x=>x[0]===id && x[2]==='confirmed' && sbEmail_(x[1]));
         if(!recipient){r[6]=Number(r[6])+1;sbSave_(s,j,r);continue;}
         const token=sbHmac_('unsubscribe:'+recipient[0]+':'+recipient[10]);
-        const url=sbProps_().getProperty('WEB_APP_URL')+'?action=unsubscribe&id='+recipient[0]+'&token='+token;
+        const url=SB_PAGES_URL_+'#action=unsubscribe&id='+recipient[0]+'&token='+token;
         const footer='<div style="font:12px Arial,sans-serif;color:#667085;padding:20px;text-align:center;border-top:1px solid #e4e7ec">Shared course monitor · not personalised LMS courses.<br><a href="'+sbEscape_(url)+'">Unsubscribe / delete my subscriber record</a></div>';
         let html=/<\/body\s*>/i.test(r[4]) ? r[4].replace(/<\/body\s*>/i,footer+'</body>') : r[4]+footer;
         const message={to:recipient[1],subject:r[2],body:r[3]+'\n\nShared monitor alerts. Unsubscribe: '+url,

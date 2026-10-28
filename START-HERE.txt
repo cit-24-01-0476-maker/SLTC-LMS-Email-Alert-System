@@ -1,9 +1,10 @@
 SLTC LMS Alerts — මේ project එක මෙතැනින් පටන් ගන්න
 
 Website එක බලන්න:
-  index.html file එක browser එකෙන් open කරන්න.
-  මෙය LOCAL PREVIEW එකක්. Email යවන්නේ හෝ save කරන්නේ නැහැ.
-  Original UI source එක signup/Index.html. Preview එක edit කරන්න එපා;
+  Live website: https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/
+  index.html දැන් GitHub Pages සඳහා production page එකයි.
+  Offline demo එකට npm run preview -> preview.html භාවිත කරන්න.
+  UI layout source එක signup/Index.html; website logic assets/app.js.
   original එක edit කරලා npm run build නැවත run කරන්න.
 
 Live signup app එක:
@@ -26,7 +27,8 @@ Existing monitor එකට:
 
 Commands (Node.js installed නම්; npm install අවශ්‍ය නැහැ):
   npm test          — offline security / behaviour checks
-  npm run build     — index.html local preview එක නැවත හදන්න
+  npm run build     — GitHub Pages index.html නැවත හදන්න
+  npm run preview   — preview.html offline demo එක හදන්න
 
 Private LMS authtoken, subscriber list හෝ signing key source files වලට,
 preview එකට, public repository එකකට දාන්න එපා. Secret configuration එක
