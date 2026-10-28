@@ -37,3 +37,8 @@ Live signup: https://script.google.com/macros/s/AKfycbyZaJHwT6kUOyJO0_e7n5_UDY5y
 
 Shared monitor එකේ course events පමණයි alerts ලෙස ලැබෙන්නේ.
 එක් එක් studentගේ personalised LMS courses මෙයින් fetch කරන්නේ නැහැ.
+
+ADMIN PANEL
+Admin: https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/admin.html
+Calendar link update / repair controls / subscriber emails මෙතැන තියෙනවා.
+Admin code එක server එකේ පමණයි; details ADMIN-OPERATIONS.txt තුළ තියෙනවා.

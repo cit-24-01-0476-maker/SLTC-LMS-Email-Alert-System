@@ -68,7 +68,7 @@ check('Owner setup entry points declare email identity scope and reject anonymou
 });
 check('Owner setup preserves configured subscriber records, keys and original scheduling',()=>{
   const p={SUBSCRIBER_ALERTS_ENABLED:'false',LMS_ICAL_URL:'private-feed',ALERT_EMAIL:'owner@example.com'};let bridgeCalls=0;
-  const c=vm.createContext({console:{log(){}},Session:{getActiveUser:()=>({getEmail:()=> 'owner@example.com'}),getEffectiveUser:()=>({getEmail:()=> 'owner@example.com'})},PropertiesService:{getScriptProperties:()=>({setProperty:(k,v)=>p[k]=v})},setupSignup_:()=>({spreadsheetId:'existing-sheet',signupsEnabled:true}),setupSubscriberBridge_:()=>bridgeCalls++});
+  const c=vm.createContext({console:{log(){}},Session:{getActiveUser:()=>({getEmail:()=> 'owner@example.com'}),getEffectiveUser:()=>({getEmail:()=> 'owner@example.com'})},PropertiesService:{getScriptProperties:()=>({setProperty:(k,v)=>p[k]=v})},setupSignup_:()=>({spreadsheetId:'existing-sheet',signupsEnabled:true}),setupSubscriberBridge_:()=>bridgeCalls++,mcSetup_:()=>{},mcEnsureTriggers_:()=>{}});
   vm.runInContext(fs.readFileSync(path.join(base,'signup/StartHere.gs'),'utf8'),c);
   vm.runInContext(fs.readFileSync(path.join(base,'monitor/StartHere.gs'),'utf8'),c);
   c.finishSignupSetup();c.finishMonitorSetup();assert.equal(bridgeCalls,1);assert.equal(p.SUBSCRIBER_ALERTS_ENABLED,'true');assert.equal(p.LMS_ICAL_URL,'private-feed');assert.equal(p.ALERT_EMAIL,'owner@example.com');

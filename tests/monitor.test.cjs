@@ -10,18 +10,19 @@ class Sheet{
   getRange(r,c,n=1,w=1){const s=this;return {getValues:()=>Array.from({length:n},(_,i)=>Array.from({length:w},(_,j)=>s.data[r-1+i]?.[c-1+j]??'')),getValue:()=>s.data[r-1]?.[c-1]??'',setValues:rows=>rows.forEach((row,i)=>{s.data[r-1+i]??=[];row.forEach((v,j)=>s.data[r-1+i][c-1+j]=v);})};}
 }
 function fixture(){
-  const state={mail:[],held:false,quota:100,failFetch:false,failOwner:false,logo:true,logoFetches:0,triggerCreates:0,ics:''};
+  const state={mail:[],held:false,quota:100,failFetch:false,failOwner:false,logo:true,logoFetches:0,triggerCreates:0,maintenanceCreates:0,ics:''};
   const props={LMS_ICAL_URL:'https://lms.sltc.ac.lk/calendar/export_execute.php?authtoken=PRIVATE_TEST_TOKEN',LMS_AUTHTOKEN:'PRIVATE_TEST_TOKEN',ALERT_EMAIL:'owner@sltc.ac.lk',SUBSCRIBERS_SHEET_ID:'sheet',WEB_APP_URL:'https://script.google.com/macros/s/TEST/exec',SIGNING_SECRET:'s'.repeat(96),SUBSCRIBER_ALERTS_ENABLED:'true',OWNER_ALERTS_ENABLED:'false'};
   const header=['id','email','status','verifyHash','verifyExpires','createdAt','confirmedAt','lastRequest','requestDay','requestCount','unsubscribeNonce','consentVersion'];
   const sheets={Subscribers:new Sheet([header,['id-a','a@sltc.ac.lk','confirmed','','',0,0,0,'',0,'nonce-a','v1'],['id-b','b@sltc.ac.lk','confirmed','','',0,0,0,'',0,'nonce-b','v1'],['id-c','c@sltc.ac.lk','pending','','',0,0,0,'',0,'nonce-c','v1']])};
   const blob={getContentType:()=> 'image/png',setName(){return this;}};
-  const ctx=vm.createContext({console:{log(){}},Date,JSON,Math,Number,String,PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k]??null,setProperty:(k,v)=>props[k]=v})},Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()],base64EncodeWebSafe:b=>Buffer.from(b).toString('base64').replace(/\+/g,'-').replace(/\//g,'_'),computeHmacSha256Signature:(s,k)=>[...crypto.createHmac('sha256',k).update(s).digest()],formatDate:d=>d.toISOString(),parseDate:()=>new Date('2026-10-29T04:30:00Z')},LockService:{getScriptLock:()=>({tryLock(){assert.equal(state.held,false,'Nested ScriptLock acquisition');state.held=true;return true;},releaseLock(){assert(state.held);state.held=false;}})},SpreadsheetApp:{openById:()=>({getSheetByName:n=>sheets[n]||null,insertSheet:n=>(sheets[n]=new Sheet())}),flush(){}},UrlFetchApp:{fetch:(url,options)=>{
+  const ctx=vm.createContext({console:{log(){}},Date,JSON,Math,Number,String,PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k]??null,setProperty:(k,v)=>props[k]=v})},Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()],base64EncodeWebSafe:b=>Buffer.from(b).toString('base64').replace(/\+/g,'-').replace(/\//g,'_'),computeHmacSha256Signature:(s,k)=>[...crypto.createHmac('sha256',k).update(s).digest()],formatDate:d=>d.toISOString(),parseDate:()=>new Date('2026-10-29T04:30:00Z')},LockService:{getScriptLock:()=>({waitLock(){assert.equal(state.held,false,'Nested ScriptLock acquisition');state.held=true;},tryLock(){assert.equal(state.held,false,'Nested ScriptLock acquisition');state.held=true;return true;},releaseLock(){assert(state.held);state.held=false;}})},SpreadsheetApp:{openById:()=>({getSheetByName:n=>sheets[n]||null,insertSheet:n=>(sheets[n]=new Sheet())}),flush(){}},UrlFetchApp:{fetch:(url,options)=>{
     if(url.includes('pluginfile.php')){state.logoFetches++;return {getResponseCode:()=>state.logo?200:404,getBlob:()=>blob};}
     assert.equal(options.followRedirects,false,'Private feed must not follow redirects');
     if(state.failFetch)throw Error('Request failed: '+url);
     return {getResponseCode:()=>200,getContentText:()=>state.ics};
-  }},MailApp:{getRemainingDailyQuota:()=>state.quota,sendEmail:m=>{if(state.failOwner&&m.to===props.ALERT_EMAIL)throw Error('Private recipient failure');state.mail.push(m);state.quota--;}},ScriptApp:{getProjectTriggers:()=>[{getHandlerFunction:()=> 'checkLms'}],newTrigger:()=>{state.triggerCreates++;throw Error('Must preserve existing trigger');}}});
+  }},MailApp:{getRemainingDailyQuota:()=>state.quota,sendEmail:m=>{if(state.failOwner&&m.to===props.ALERT_EMAIL)throw Error('Private recipient failure');state.mail.push(m);state.quota--;}},ScriptApp:{getProjectTriggers:()=>[{getHandlerFunction:()=> 'checkLms'},...(state.maintenanceCreates?[{getHandlerFunction:()=> 'monitorMaintenance'}]:[])],newTrigger:name=>{if(name==='checkLms'){state.triggerCreates++;throw Error('Must preserve existing main trigger');}assert.equal(name,'monitorMaintenance');return {timeBased(){return this;},everyMinutes(n){assert.equal(n,5);return this;},create(){state.maintenanceCreates++;}};}} });
   vm.runInContext(fs.readFileSync(path.join(root,'monitor/SubscriberBridge.gs'),'utf8'),ctx);
+  vm.runInContext(fs.readFileSync(path.join(root,'monitor/MonitorControl.gs'),'utf8'),ctx);
   vm.runInContext(fs.readFileSync(path.join(root,'monitor/LmsMonitor.gs'),'utf8'),ctx);
   ctx.setupSubscriberBridge_();return {ctx,state,props,sheets};
 }
@@ -30,6 +31,7 @@ function event(uid,title,date='20261029T100000Z',description='Details',url='http
 }
 function calendar(...events){return 'BEGIN:VCALENDAR\r\n'+events.join('\r\n')+'\r\nEND:VCALENDAR';}
 let checks=0;function check(name,f){f();checks++;console.log('PASS',name);}
+if(require.main===module){
 const {ctx,state,props,sheets}=fixture();
 check('Original v2.0 navy/gold template output is preserved exactly',()=>{
   const html=ctx.buildEmailHtml([{status:'UPDATED',title:'Sample & <assignment>',when:'Thu, 29 Oct 2026 at 03:30 PM (Sri Lanka Time)',description:'Shared course notice',url:'https://lms.sltc.ac.lk/mod/assign/view.php?id=42'}],false,true);
@@ -63,3 +65,6 @@ check('Large changes are split into bounded styled digests',()=>{
 });
 check('Raw private token embedded in course text cannot escape in email',()=>assert.throws(()=>ctx.sbNoSecret_('Do not send PRIVATE_TEST_TOKEN')));
 console.log(`${checks} monitor integration checks passed. No live LMS or mail requests were made.`);
+
+}
+module.exports={fixture,event,calendar,Sheet};

@@ -1,0 +1,110 @@
+SLTC LMS ALERTS — ADMIN OPERATIONS
+
+Website:
+https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/
+Admin:
+https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/admin.html
+
+Admin access
+-----------
+Use the separately provided six-digit admin code. It is not in GitHub source,
+HTML or JavaScript. The server verifies an HMAC hash held in Script Properties.
+Five failed login attempts lock further attempts for fifteen minutes. Sessions
+expire after thirty minutes; only a hashed session token is stored server-side.
+The admin tab keeps its session token in sessionStorage, not subscriber emails,
+the code or calendar URL. Sign out clears displayed private data and revokes
+that session. The access code is the shared operator credential, not a separate
+student account or a claim of multi-factor authentication.
+
+Dashboard
+---------
+Confirmed / Pending: registered university emails and verification status.
+Active page visits: approximate anonymous visits active in the last five
+minutes, capped at the recent cache capacity. These are NOT identified users
+and are not linked to student email addresses. No persistent visitor ID or IP
+is stored by this activity counter. Google provider logs have their own rules.
+Queued / Failed: alerts waiting to send, or jobs requiring attention.
+Health: last successful check, last worker activity, feed status, sender quota,
+main/control schedules and the existing direct owner recipient.
+
+Calendar link update — ලේසි පියවර
+--------------------------------
+1. Log in to your LMS account and generate a fresh calendar export link.
+2. Open Admin -> Update the calendar link.
+3. Paste it into the masked Private LMS calendar export URL field.
+4. Press Validate & update link.
+5. Wait for Action history to show Done. Changes normally apply within five
+   minutes; the first control-worker startup can take one main-monitor cycle.
+
+The backend accepts only HTTPS SLTC calendar-export endpoints and rejects
+redirects/non-calendar responses. An invalid replacement leaves the current
+private LMS_ICAL_URL unchanged. The private worker validates it again before
+changing the actual monitor setting. The full link/token is not returned in
+dashboard responses. Processed or expired command payloads are cleared from
+the active Sheet row; Google revision history/backups have separate retention.
+
+Buttons
+-------
+Test connection: tests the currently configured feed without requesting mail.
+Check calendar now: requests a normal check; genuine changes can send alerts.
+Retry failed alerts: requeues eligible failed jobs, preserving recipient cursor.
+Repair monitor: restores missing schedules, retries eligible failed jobs and
+requests a calendar check. It preserves the existing event fingerprints.
+Refresh dashboard: reloads the authenticated status/subscriber list.
+
+Queued is not a success claim: the action history records running/done/failed.
+Sending still obeys quota reserves. Old expired jobs are not blindly replayed.
+Transient connection failures retry on later regular runs. A revoked/expired
+LMS token CANNOT be automatically minted by this website; the LMS must issue
+a new link, which the operator can then submit here.
+
+Recovery scheduling
+-------------------
+The main checkLms schedule remains approximately every fifteen minutes.
+monitorMaintenance runs approximately every five minutes, processing commands
+and recreating a missing main/control schedule. It normally does not fetch
+the LMS or send mail unless an explicit action requests it. The first regular
+check after upgrade automatically starts this control schedule.
+
+If BOTH schedules were deleted or Google authorization was revoked, a queued
+web command cannot run by itself. Open Google recovery setup from the admin
+dashboard and run finishMonitorSetup once in the existing private project.
+Google may require the owner to approve permissions. Do not make the private
+monitor a public web app. Temporary account outages/quota limits cannot be
+bypassed with a Repair button.
+
+Private data and key rotation
+----------------------------
+Subscriber emails and full calendar links must not go into GitHub, screenshots
+or public issue comments. Keep the private Sheet restricted to trusted editors.
+Admin API calls always require the code/session, even if someone reveals the
+hidden dashboard in their own browser. Browser-origin checks are additional
+transport protection, not a substitute for server authentication.
+
+If SIGNING_SECRET changes, invalidate ADMIN_SESSIONS and regenerate
+ADMIN_CODE_HASH as HMAC-SHA256('admin-code:' + chosenCode, newSigningSecret).
+Existing confirmation/subscriber-token rotation rules still apply. Do not use
+an unkeyed six-digit-code hash or publish a raw admin code in client assets.
+Changing the admin code must also revoke existing admin sessions.
+
+Deployment files
+----------------
+Public UI: web/index.html, web/admin.html, assets/styles.css, assets/app.js,
+assets/admin.js, assets/transport.js and the campus logo.
+npm run build generates index.html and admin.html for GitHub Pages.
+Signup backend: Code.gs, Admin.gs, Bridge.html, Index.html, StartHere.gs,
+appsscript.json. Update the SAME deployed web-app version/URL after changes.
+Private monitor: LmsMonitor.gs as Code.gs, SubscriberBridge.gs, MonitorControl.gs,
+StartHere.gs and the existing manifest. Do not overwrite existing properties.
+The deploy-time admin bootstrap is private, never committed, and removed after
+the server has stored the hash. Do not run an old completed bootstrap again.
+
+Validation
+----------
+61 automated checks cover signup, original rendering/fingerprints, transport,
+authentication, sessions, privacy, calendar updates and worker recovery.
+Additional isolated DOM checks cover admin login/logout, masked link input,
+private-data clearing and late-response handling. Live API tests verified the
+configured code, unauthorized-access denial, subscriber data protection and a
+connection-only diagnostic. The browser's visual layout still needs normal
+human acceptance; no test mail or test subscriber deletion was requested.

@@ -477,18 +477,21 @@ function checkLms() {
   const lock=LockService.getScriptLock();
   if(!lock.tryLock(10000))return;
   const store=PropertiesService.getScriptProperties();
-  const subscribersEnabled=store.getProperty('SUBSCRIBER_ALERTS_ENABLED')==='true';
+  let subscribersEnabled=store.getProperty('SUBSCRIBER_ALERTS_ENABLED')==='true';
+  let controlReady=false;
   try {
+    if(store.getProperty('SUBSCRIBERS_SHEET_ID')){
+      mcSetup_();const schedules=mcEnsureTriggers_();mcCommands_();controlReady=true;
+      subscribersEnabled=store.getProperty('SUBSCRIBER_ALERTS_ENABLED')==='true';
+      mcSafeHealth_({lastCheck:Date.now(),workerSeen:Date.now(),...schedules,status:'checking',ownerEmail:store.getProperty(EMAIL_KEY)||'',mailRemaining:MailApp.getRemainingDailyQuota()});
+    }
     const url=store.getProperty(LMS_URL_KEY), email=store.getProperty(EMAIL_KEY);
     const ownerEnabled=store.getProperty('OWNER_ALERTS_ENABLED')!=='false';
     if(!url || (ownerEnabled && !email))throw new Error('Configure LMS_ICAL_URL and ALERT_EMAIL privately.');
-    // Only fetch the trusted LMS host; never send a token to an arbitrary host.
-    if(!/^https:\/\/lms\.sltc\.ac\.lk\//i.test(url))throw new Error('Invalid private calendar host');
-    let response;
-    try {response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false});}
-    catch(_){throw new Error('Private LMS fetch failed. Check token/network privately; do not log the calendar URL.');}
-    const ics=response.getContentText('UTF-8');
-    if(response.getResponseCode()!==200 || !ics.includes('BEGIN:VCALENDAR'))throw new Error('Could not read the SLTC LMS calendar. Check for an expired token or login redirect.');
+    const fetched=mcFetch_(url);
+    if(!fetched.ok){const error=new Error(fetched.message);error.monitorCode=fetched.code;throw error;}
+    const ics=fetched.ics;
+    if(controlReady)mcSafeHealth_({calendarStatus:'ok',calendarTestedAt:Date.now(),calendarHost:'lms.sltc.ac.lk'});
     const blocks=ics.replace(/\r?\n[ \t]/g,'').match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g)||[];
     const initialized=store.getProperty('LMS_INITIALIZED')==='yes';
     const updates=[],alerts=[],subscriberChanges=[];
@@ -519,12 +522,18 @@ function checkLms() {
     // Store only after durable queue insertion / original owner send succeeds.
     for(const item of updates)store.setProperty(item.key,item.fingerprint);
     store.setProperty('LMS_INITIALIZED','yes');
+    store.setProperty('MONITOR_FAILURES','0');
+    if(controlReady){mcSafeHealth_({lastSuccess:Date.now(),status:'healthy',lastError:'',lastErrorCode:'',consecutiveFailures:0,eventCount:blocks.length,changedEvents:alerts.length});mcFinishCommands_(true,'Calendar check completed. Eligible alerts were queued.');}
     console.log('LMS check complete. Events: '+blocks.length+' | New/updated: '+alerts.length);
+  } catch(error){
+    const failures=Number(store.getProperty('MONITOR_FAILURES')||0)+1;store.setProperty('MONITOR_FAILURES',String(failures));
+    if(controlReady){const failure=mcFailure_(error);const patch={lastFailure:Date.now(),status:'attention',lastError:failure.message,lastErrorCode:failure.code,consecutiveFailures:failures};if(error.monitorCode)patch.calendarStatus=error.monitorCode;mcSafeHealth_(patch);mcFinishCommands_(false,failure.message);}
+    throw error;
   } finally {
     try {
       // Exactly one drain per run, including unchanged/failed calendar fetches.
       // The existing monitor lock is already held; do not acquire it again.
-      if(subscribersEnabled)sbDrainUnlocked_();
+      if(subscribersEnabled){const delivered=sbDrainUnlocked_();if(controlReady)mcSafeHealth_({mailRemaining:MailApp.getRemainingDailyQuota(),lastBatchSent:delivered.sent||0,queueSendFailures:delivered.failed||0});}
     } finally {lock.releaseLock();}
   }
 }

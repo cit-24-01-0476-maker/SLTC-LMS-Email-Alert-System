@@ -9,6 +9,7 @@ function frontend(hash=''){
   const get=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,textContent:'',value:'',checked:false});return elements.get(id);};
   const context=vm.createContext({console,URL,URLSearchParams,crypto:crypto.webcrypto,location:{origin,hash,search:'',pathname:'/SLTC-LMS-Email-Alert-System/'},history:{replaceState(){context.hashRemoved=true;}},document:{getElementById:get,createElement:type=>({type,setAttribute(name,value){this[name]=value;},remove(){}}),body:{appendChild:frame=>frames.push(frame)},head:{appendChild(){}}},setTimeout:(fn,ms)=>{const id=++sequence;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)});
   context.window=context;context.addEventListener=(type,fn)=>events[type]=fn;
+  vm.runInContext(fs.readFileSync(path.join(root,'assets/transport.js'),'utf8'),context);
   vm.runInContext(client,context);
   const nonce=()=>new URL(frames.at(-1).src).searchParams.get('channel');
   const sent=[],peer={postMessage:(message,target)=>sent.push({message,target})};

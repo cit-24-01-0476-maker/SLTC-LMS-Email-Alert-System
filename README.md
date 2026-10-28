@@ -55,7 +55,7 @@ npm test
 npm run build
 ```
 
-Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 48 checks, including the integrated original monitor and an exact original-renderer output regression check. The production signup page was verified accessible without login (HTTP 200), and both setup steps completed. A real student-mailbox confirmation/alert delivery test and optional Turnstile iframe compatibility still require the acceptance tests in the deployment guide.
+Edit `signup/Index.html` and rebuild to refresh the local preview. The offline suite has 61 checks, including the integrated original monitor and an exact original-renderer output regression check. The production signup page was verified accessible without login (HTTP 200), and both setup steps completed. A real student-mailbox confirmation/alert delivery test and optional Turnstile iframe compatibility still require the acceptance tests in the deployment guide.
 
 ## Deployment and security
 
@@ -71,4 +71,10 @@ The completed production bootstrap helpers were removed. Signing keys are held i
 
 Pages publishes the `main` branch at `/`; `.nojekyll` serves the static files directly. Run `npm run build` after layout/client changes and commit `index.html` plus `assets/app.js`. Never publish `work/`, credentials or private deployment helpers. Backend template changes require a separate Apps Script push and update of the existing deployment.
 
-The bridge permits only `requestSignup`, `confirmSubscription` and `unsubscribe`. Both sides check the origin, per-page random channel and request identity. No request result is shown as successful until the matching backend response arrives. If connection fails, the page offers retry/private-window help. Real browser handshake and mailbox delivery need live acceptance testing.
+The bridge permits an explicit set of student/activity methods plus server-authenticated admin methods. Both sides check the origin, per-page random channel and request identity. No request result is shown as successful until the matching backend response arrives. If connection fails, the page offers retry/private-window help. Real browser handshake and mailbox delivery need live acceptance testing.
+
+## Operator dashboard
+
+[Open Admin](https://cit-24-01-0476-maker.github.io/SLTC-LMS-Email-Alert-System/admin.html). The code is configured only on the server; it is not in this repository. The dashboard shows protected subscriber emails, anonymous recent-visit counts, monitor health, sending quota and action history. Operators can validate/update the private calendar source, test its connection, request a check, retry failed jobs and repair missing schedules.
+
+See [ADMIN-OPERATIONS.txt](ADMIN-OPERATIONS.txt) for the five-minute control worker, session limits and recovery. Expired university tokens require a fresh LMS-issued calendar link. No admin button can regenerate an LMS token or bypass Google sending quotas. The existing fifteen-minute monitor and original navy/gold emails remain.

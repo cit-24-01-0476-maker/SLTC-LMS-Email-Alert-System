@@ -7,6 +7,7 @@ function finishMonitorSetup() {
   const store = PropertiesService.getScriptProperties();
   store.setProperty('SUBSCRIBER_ALERTS_ENABLED', 'false');
   setupSubscriberBridge_();
+  mcSetup_();mcEnsureTriggers_();
   store.setProperty('SUBSCRIBER_ALERTS_ENABLED', 'true');
   console.log('Monitor connected to verified subscribers.');
   console.log('Existing LMS settings, event fingerprints and checkLms trigger preserved.');
